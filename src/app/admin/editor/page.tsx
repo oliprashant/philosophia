@@ -1,12 +1,17 @@
-import dynamic from 'next/dynamic';
 import { Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 
-const Editor = dynamic(() => import('./EditorClient'), { ssr: false });
+function EditorContent() {
+  const searchParams = useSearchParams();
+  const id = searchParams.get('id');
 
-export default function Page() {
+  return <div>Editing post {id}</div>;
+}
+
+export default function EditorPage() {
   return (
     <Suspense fallback={<div>Loading...</div>}>
-      <Editor />
+      <EditorContent />
     </Suspense>
   );
 }
