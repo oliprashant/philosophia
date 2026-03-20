@@ -1,4 +1,5 @@
 'use client';
+export const dynamic = 'force-dynamic';
 // src/app/admin/editor/page.tsx
 // Rich-text post editor using TipTap. Supports create + edit modes.
 // Handles image uploads, taxonomy selection, publish toggle.
