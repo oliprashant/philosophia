@@ -1,12 +1,13 @@
 'use client';
 // src/app/search/page.tsx
-// Full-text search with filters: category, genre, humour, tag, date range, sort order.
 
-import { useState, useEffect, useCallback } from 'react';
+import { Suspense, useState, useEffect, useCallback } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { Search, SlidersHorizontal, X, Loader2 } from 'lucide-react';
 import PostCard from '@/components/blog/PostCard';
 import type { PostSummary, Paginated } from '@/types';
+
+export const dynamic = 'force-dynamic'; // 👈 prevents static prerender crash
 
 const SORT_OPTIONS = [
   { value: 'newest',   label: 'Newest first' },
@@ -19,16 +20,17 @@ const SORT_OPTIONS = [
 const GENRE_OPTIONS = ['ESSAY','DIALOGUE','POEM','APHORISM','LETTER','REVIEW','INTERVIEW'];
 const CATEGORY_OPTIONS = ['ethics','metaphysics','existentialism','epistemology','aesthetics'];
 
-export default function SearchPage() {
+// 👇 Inner component — the only thing that changed structurally
+function SearchInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  const [q, setQ]             = useState(searchParams.get('q') || '');
+  const [q, setQ]               = useState(searchParams.get('q') || '');
   const [category, setCategory] = useState(searchParams.get('category') || '');
-  const [genre, setGenre]     = useState(searchParams.get('genre') || '');
-  const [sort, setSort]       = useState(searchParams.get('sort') || 'newest');
+  const [genre, setGenre]       = useState(searchParams.get('genre') || '');
+  const [sort, setSort]         = useState(searchParams.get('sort') || 'newest');
   const [dateFrom, setDateFrom] = useState(searchParams.get('dateFrom') || '');
-  const [dateTo, setDateTo]   = useState(searchParams.get('dateTo') || '');
+  const [dateTo, setDateTo]     = useState(searchParams.get('dateTo') || '');
   const [showFilters, setShowFilters] = useState(false);
 
   const [results, setResults] = useState<PostSummary[]>([]);
@@ -64,7 +66,6 @@ export default function SearchPage() {
     }
   }, [buildQuery]);
 
-  // Search on filter change (debounced for text input)
   useEffect(() => {
     const timer = setTimeout(() => { fetchResults(1); }, q ? 350 : 0);
     return () => clearTimeout(timer);
@@ -77,7 +78,6 @@ export default function SearchPage() {
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-      {/* Search bar */}
       <div className="mb-8">
         <h1 className="section-title mb-6">Search</h1>
         <div className="flex gap-3">
@@ -102,11 +102,9 @@ export default function SearchPage() {
           </button>
         </div>
 
-        {/* Filter panel */}
         {showFilters && (
           <div className="mt-3 p-5 border border-[var(--border)] bg-[var(--bg-secondary)] animate-slide-down">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              {/* Category */}
               <div>
                 <label className="block text-xs font-sans font-medium text-[var(--text-faint)] uppercase tracking-wider mb-2">Category</label>
                 <select value={category} onChange={e => setCategory(e.target.value)}
@@ -115,7 +113,6 @@ export default function SearchPage() {
                   {CATEGORY_OPTIONS.map(c => <option key={c} value={c}>{c.charAt(0).toUpperCase() + c.slice(1)}</option>)}
                 </select>
               </div>
-              {/* Genre */}
               <div>
                 <label className="block text-xs font-sans font-medium text-[var(--text-faint)] uppercase tracking-wider mb-2">Form</label>
                 <select value={genre} onChange={e => setGenre(e.target.value)}
@@ -124,7 +121,6 @@ export default function SearchPage() {
                   {GENRE_OPTIONS.map(g => <option key={g} value={g}>{g.charAt(0) + g.slice(1).toLowerCase()}</option>)}
                 </select>
               </div>
-              {/* Sort */}
               <div>
                 <label className="block text-xs font-sans font-medium text-[var(--text-faint)] uppercase tracking-wider mb-2">Sort by</label>
                 <select value={sort} onChange={e => setSort(e.target.value)}
@@ -132,7 +128,6 @@ export default function SearchPage() {
                   {SORT_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                 </select>
               </div>
-              {/* Date range */}
               <div>
                 <label className="block text-xs font-sans font-medium text-[var(--text-faint)] uppercase tracking-wider mb-2">Date range</label>
                 <div className="flex gap-1.5">
@@ -153,7 +148,6 @@ export default function SearchPage() {
         )}
       </div>
 
-      {/* Results */}
       {loading && results.length === 0 ? (
         <div className="flex items-center justify-center gap-3 py-24 text-[var(--text-faint)]">
           <Loader2 size={20} className="animate-spin" />
@@ -167,7 +161,6 @@ export default function SearchPage() {
               {q && <> for <span className="text-[var(--text-primary)] font-medium">"{q}"</span></>}
             </p>
           )}
-
           {results.length === 0 && !loading ? (
             <div className="text-center py-24">
               <p className="text-5xl mb-4" style={{ fontFamily: 'var(--font-cormorant)' }}>∅</p>
@@ -178,8 +171,6 @@ export default function SearchPage() {
               {results.map((post, i) => <PostCard key={post.id} post={post} index={i} />)}
             </div>
           )}
-
-          {/* Load more */}
           {hasMore && (
             <div className="flex justify-center mt-12">
               <button
@@ -194,5 +185,19 @@ export default function SearchPage() {
         </>
       )}
     </div>
+  );
+}
+
+// 👇 Default export wraps inner component in Suspense
+export default function SearchPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex items-center justify-center gap-3 py-24 text-[var(--text-faint)]">
+        <Loader2 size={20} className="animate-spin" />
+        <span className="font-sans text-sm">Loading…</span>
+      </div>
+    }>
+      <SearchInner />
+    </Suspense>
   );
 }
