@@ -1,0 +1,309 @@
+// Prisma Schema for Philosophia Blog
+// Run: npx prisma migrate dev --name init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── User ────────────────────────────────────────────────────────────────────
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String?   @unique
+  emailVerified DateTime?
+  image         String?
+  bio           String?
+  role          Role      @default(READER)
+  password      String?   // hashed, only for credentials provider
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // NextAuth relations
+  accounts      Account[]
+  sessions      Session[]
+
+  // App relations
+  posts         Post[]          @relation("AuthorPosts")
+  comments      Comment[]
+  upvotes       Upvote[]
+  suggestions   Suggestion[]
+  highlights    Highlight[]
+  savedPosts    SavedPost[]
+  readingHistory ReadingHistory[]
+  newsletter    NewsletterSubscription?
+
+  @@map("users")
+}
+
+enum Role {
+  READER
+  AUTHOR
+  ADMIN
+}
+
+// ─── NextAuth Models ─────────────────────────────────────────────────────────
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
+}
+
+// ─── Category / Taxonomy ─────────────────────────────────────────────────────
+model Category {
+  id          String  @id @default(cuid())
+  name        String  @unique
+  slug        String  @unique
+  description String?
+  color       String? // hex color for UI
+  posts       Post[]
+
+  @@map("categories")
+}
+
+model Tag {
+  id    String     @id @default(cuid())
+  name  String     @unique
+  slug  String     @unique
+  posts PostTag[]
+
+  @@map("tags")
+}
+
+// Philosophical "humours" – a custom taxonomy inspired by the four humours
+// e.g. Melancholic (dark, introspective), Sanguine (optimistic, vibrant),
+// Choleric (passionate, polemical), Phlegmatic (calm, systematic)
+model Humour {
+  id          String  @id @default(cuid())
+  name        String  @unique  // e.g. "Melancholic"
+  slug        String  @unique
+  description String?
+  color       String? // UI accent color
+  posts       Post[]
+
+  @@map("humours")
+}
+
+// ─── Post ────────────────────────────────────────────────────────────────────
+model Post {
+  id          String      @id @default(cuid())
+  title       String
+  slug        String      @unique
+  excerpt     String?
+  content     String      @db.Text   // HTML from TipTap
+  coverImage  String?                // Cloudinary URL
+  coverAlt    String?                // Accessibility alt text
+  published   Boolean     @default(false)
+  featured    Boolean     @default(false)
+  genre       Genre       @default(ESSAY)
+  readingTime Int?                   // minutes (computed)
+  viewCount   Int         @default(0)
+
+  // Taxonomy
+  categoryId  String?
+  category    Category?   @relation(fields: [categoryId], references: [id])
+  humourId    String?
+  humour      Humour?     @relation(fields: [humourId], references: [id])
+  tags        PostTag[]
+
+  // Author
+  authorId    String
+  author      User        @relation("AuthorPosts", fields: [authorId], references: [id])
+
+  // AI-generated content (cached)
+  aiSummary   String?     @db.Text
+
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  publishedAt DateTime?
+
+  // Relations
+  comments    Comment[]
+  upvotes     Upvote[]
+  suggestions Suggestion[]
+  highlights  Highlight[]
+  savedBy     SavedPost[]
+  readHistory ReadingHistory[]
+
+  @@map("posts")
+}
+
+enum Genre {
+  ESSAY
+  DIALOGUE
+  POEM
+  APHORISM
+  LETTER
+  REVIEW
+  INTERVIEW
+}
+
+model PostTag {
+  postId String
+  tagId  String
+  post   Post   @relation(fields: [postId], references: [id], onDelete: Cascade)
+  tag    Tag    @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([postId, tagId])
+  @@map("post_tags")
+}
+
+// ─── Comments ────────────────────────────────────────────────────────────────
+model Comment {
+  id        String    @id @default(cuid())
+  content   String    @db.Text
+  postId    String
+  post      Post      @relation(fields: [postId], references: [id], onDelete: Cascade)
+  authorId  String?   // null for anonymous
+  author    User?     @relation(fields: [authorId], references: [id], onDelete: SetNull)
+  guestName String?   // for anonymous commenters
+  guestEmail String?
+
+  parentId  String?   // for threading
+  parent    Comment?  @relation("CommentReplies", fields: [parentId], references: [id])
+  replies   Comment[] @relation("CommentReplies")
+
+  upvotes   Upvote[]
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deleted   Boolean   @default(false)
+
+  @@map("comments")
+}
+
+// ─── Upvotes ─────────────────────────────────────────────────────────────────
+model Upvote {
+  id        String   @id @default(cuid())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  ipAddress String?  // fallback for non-logged-in users
+
+  postId    String?
+  post      Post?    @relation(fields: [postId], references: [id], onDelete: Cascade)
+  commentId String?
+  comment   Comment? @relation(fields: [commentId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  // A user or IP can only upvote a post/comment once
+  @@unique([userId, postId])
+  @@unique([userId, commentId])
+  @@unique([ipAddress, postId])
+  @@map("upvotes")
+}
+
+// ─── Suggestions (Edit Proposals) ────────────────────────────────────────────
+model Suggestion {
+  id          String           @id @default(cuid())
+  postId      String
+  post        Post             @relation(fields: [postId], references: [id], onDelete: Cascade)
+  authorId    String?
+  author      User?            @relation(fields: [authorId], references: [id], onDelete: SetNull)
+  guestName   String?
+  guestEmail  String?
+  originalText String?        @db.Text
+  suggestedText String        @db.Text
+  reason      String?
+  status      SuggestionStatus @default(PENDING)
+  reviewedAt  DateTime?
+  createdAt   DateTime         @default(now())
+
+  @@map("suggestions")
+}
+
+enum SuggestionStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+// ─── Highlights (Reading Mode) ────────────────────────────────────────────────
+model Highlight {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  postId     String
+  post       Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  text       String   @db.Text   // the selected text
+  color      String              // hex color
+  startOffset Int               // character offset in article
+  endOffset   Int
+  createdAt  DateTime @default(now())
+
+  @@map("highlights")
+}
+
+// ─── Saved Posts ──────────────────────────────────────────────────────────────
+model SavedPost {
+  userId    String
+  postId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  savedAt   DateTime @default(now())
+
+  @@id([userId, postId])
+  @@map("saved_posts")
+}
+
+// ─── Reading History (for AI recommendations) ────────────────────────────────
+model ReadingHistory {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  postId    String
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  readAt    DateTime @default(now())
+  duration  Int?     // seconds spent reading
+
+  @@unique([userId, postId])
+  @@map("reading_history")
+}
+
+// ─── Newsletter ───────────────────────────────────────────────────────────────
+model NewsletterSubscription {
+  id         String   @id @default(cuid())
+  email      String   @unique
+  userId     String?  @unique
+  user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  confirmed  Boolean  @default(false)
+  createdAt  DateTime @default(now())
+
+  @@map("newsletter_subscriptions")
+}

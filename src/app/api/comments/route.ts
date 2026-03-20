@@ -1,0 +1,112 @@
+// src/app/api/comments/route.ts
+// GET  /api/comments?postId=xxx  → paginated threaded comments
+// POST /api/comments              → create a new comment (any user)
+
+import { NextRequest, NextResponse } from 'next/server';
+import { prisma } from '@/lib/prisma';
+import { auth } from '@/lib/auth';
+import { z } from 'zod';
+
+// ── GET ────────────────────────────────────────────────────────────────────────
+export async function GET(req: NextRequest) {
+  const { searchParams } = new URL(req.url);
+  const postId = searchParams.get('postId');
+
+  if (!postId) return NextResponse.json({ error: 'postId required' }, { status: 400 });
+
+  try {
+    const comments = await prisma.comment.findMany({
+      where: { postId, parentId: null }, // top-level only; replies nested below
+      orderBy: { createdAt: 'desc' },
+      include: {
+        author: { select: { id: true, name: true, image: true, bio: true, role: true } },
+        _count: { select: { upvotes: true } },
+        replies: {
+          orderBy: { createdAt: 'asc' },
+          include: {
+            author: { select: { id: true, name: true, image: true, bio: true, role: true } },
+            _count: { select: { upvotes: true } },
+            replies: {  // second level
+              orderBy: { createdAt: 'asc' },
+              include: {
+                author: { select: { id: true, name: true, image: true, bio: true, role: true } },
+                _count: { select: { upvotes: true } },
+                replies: { include: { author: { select: { id: true, name: true, image: true, bio: true, role: true } }, _count: { select: { upvotes: true } } } },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    const serialize = (c: any): any => ({
+      ...c,
+      createdAt: c.createdAt.toISOString(),
+      updatedAt: c.updatedAt.toISOString(),
+      replies: c.replies?.map(serialize) ?? [],
+    });
+
+    return NextResponse.json({ comments: comments.map(serialize) });
+  } catch (err) {
+    console.error('[Comments GET]', err);
+    return NextResponse.json({ error: 'Failed to load comments' }, { status: 500 });
+  }
+}
+
+// ── POST ───────────────────────────────────────────────────────────────────────
+const commentSchema = z.object({
+  postId: z.string().min(1),
+  content: z.string().min(1).max(5000),
+  parentId: z.string().nullable().optional(),
+  guestName: z.string().max(100).optional(),
+  guestEmail: z.string().email().optional().or(z.literal('')),
+});
+
+export async function POST(req: NextRequest) {
+  const session = await auth();
+  const body = await req.json();
+
+  const parsed = commentSchema.safeParse(body);
+  if (!parsed.success) return NextResponse.json({ error: 'Invalid data', details: parsed.error.flatten() }, { status: 400 });
+
+  const { postId, content, parentId, guestName, guestEmail } = parsed.data;
+
+  // Anonymous users must supply a name
+  if (!session?.user && !guestName) {
+    return NextResponse.json({ error: 'Name is required for anonymous comments' }, { status: 400 });
+  }
+
+  // Verify post exists
+  const post = await prisma.post.findUnique({ where: { id: postId, published: true }, select: { id: true } });
+  if (!post) return NextResponse.json({ error: 'Post not found' }, { status: 404 });
+
+  try {
+    const comment = await prisma.comment.create({
+      data: {
+        content,
+        postId,
+        parentId: parentId ?? null,
+        authorId: session?.user ? (session.user as any).id : null,
+        guestName: !session?.user ? guestName : null,
+        guestEmail: !session?.user && guestEmail ? guestEmail : null,
+      },
+      include: {
+        author: { select: { id: true, name: true, image: true, bio: true, role: true } },
+        _count: { select: { upvotes: true } },
+        replies: [],
+      },
+    });
+
+    return NextResponse.json({
+      comment: {
+        ...comment,
+        createdAt: comment.createdAt.toISOString(),
+        updatedAt: comment.updatedAt.toISOString(),
+        replies: [],
+      },
+    }, { status: 201 });
+  } catch (err) {
+    console.error('[Comments POST]', err);
+    return NextResponse.json({ error: 'Failed to create comment' }, { status: 500 });
+  }
+}

@@ -1,0 +1,226 @@
+/* src/app/globals.css */
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400;1,500;1,600&family=Lora:ital,wght@0,400;0,500;0,600;1,400;1,500&family=DM+Sans:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── CSS Custom Properties ────────────────────────────────────────────────────── */
+:root {
+  /* Font families */
+  --font-cormorant: 'Cormorant Garamond', Georgia, serif;
+  --font-lora: 'Lora', Georgia, serif;
+  --font-dm-sans: 'DM Sans', system-ui, sans-serif;
+  --font-jetbrains: 'JetBrains Mono', monospace;
+
+  /* Brand colors (light mode) */
+  --bg-primary: #FDFAF5;
+  --bg-secondary: #F9F3E8;
+  --bg-tertiary: #F2E8D0;
+  --text-primary: #1A1208;
+  --text-secondary: #2D2215;
+  --text-muted: #5C4F3A;
+  --text-faint: #8C7B65;
+  --accent: #6B1E3C;
+  --accent-light: #8B2E52;
+  --gold: #C9A84C;
+  --border: #E8D5B0;
+
+  /* Reading mode */
+  --reading-bg: #F8F3EC;
+  --reading-text: #1A1208;
+  --reading-width: 68ch;
+  --reading-size: 1.125rem;
+}
+
+.dark {
+  --bg-primary: #0F0B07;
+  --bg-secondary: #181210;
+  --bg-tertiary: #231C15;
+  --text-primary: #F2E8D0;
+  --text-secondary: #E8D5B0;
+  --text-muted: #A89880;
+  --text-faint: #6B5D4A;
+  --accent: #9B3458;
+  --accent-light: #BE4A70;
+  --gold: #D4A84C;
+  --border: #2D2215;
+  --reading-bg: #0F0B07;
+  --reading-text: #F2E8D0;
+}
+
+/* ── Base Styles ──────────────────────────────────────────────────────────────── */
+@layer base {
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    scroll-behavior: smooth;
+  }
+
+  body {
+    background-color: var(--bg-primary);
+    color: var(--text-primary);
+    font-family: var(--font-lora);
+    transition: background-color 0.3s ease, color 0.3s ease;
+  }
+
+  ::selection {
+    background-color: rgba(107, 30, 60, 0.2);
+    color: var(--text-primary);
+  }
+
+  /* Custom scrollbar */
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: var(--bg-secondary); }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--text-faint); }
+}
+
+/* ── Component Utilities ─────────────────────────────────────────────────────── */
+@layer components {
+  /* Editorial divider line */
+  .ornamental-divider {
+    @apply relative text-center my-10;
+  }
+  .ornamental-divider::before {
+    content: '✦';
+    @apply text-gold text-xl;
+  }
+
+  /* Post card hover effect */
+  .post-card {
+    @apply transition-all duration-300 ease-out;
+  }
+  .post-card:hover {
+    @apply -translate-y-0.5;
+  }
+
+  /* Reading mode overlay */
+  .reading-mode {
+    font-family: var(--font-lora) !important;
+    font-size: var(--reading-size) !important;
+    line-height: 1.9 !important;
+    max-width: var(--reading-width) !important;
+    color: var(--reading-text) !important;
+  }
+
+  /* Highlight colors */
+  .highlight-yellow { background-color: rgba(255, 236, 100, 0.4); }
+  .highlight-blue   { background-color: rgba(100, 180, 255, 0.35); }
+  .highlight-red    { background-color: rgba(255, 100, 100, 0.35); }
+  .highlight-green  { background-color: rgba(100, 220, 130, 0.35); }
+  .highlight-purple { background-color: rgba(180, 100, 255, 0.35); }
+
+  /* AI chat bubble */
+  .chat-bubble-user {
+    @apply bg-burgundy text-parchment-100 rounded-2xl rounded-br-sm px-4 py-2.5 max-w-xs ml-auto text-sm;
+    background-color: var(--accent);
+  }
+  .chat-bubble-ai {
+    @apply bg-parchment-100 dark:bg-ink-light text-ink dark:text-parchment-200 rounded-2xl rounded-bl-sm px-4 py-2.5 max-w-xs text-sm;
+  }
+
+  /* Focus ring */
+  .focus-ring {
+    @apply focus:outline-none focus-visible:ring-2 focus-visible:ring-burgundy focus-visible:ring-offset-2;
+  }
+
+  /* Category pill */
+  .category-pill {
+    @apply inline-flex items-center px-3 py-1 rounded-full text-xs font-sans font-medium tracking-wide uppercase;
+  }
+
+  /* Section title */
+  .section-title {
+    font-family: var(--font-cormorant);
+    @apply text-2xl md:text-3xl font-bold text-ink dark:text-parchment-200;
+  }
+}
+
+/* ── Tiptap Editor Styles ───────────────────────────────────────────────────── */
+.ProseMirror {
+  font-family: var(--font-lora);
+  font-size: 1rem;
+  line-height: 1.8;
+  color: var(--text-primary);
+  min-height: 400px;
+  padding: 1.5rem;
+  outline: none;
+}
+
+.ProseMirror p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  color: var(--text-faint);
+  pointer-events: none;
+  height: 0;
+}
+
+.ProseMirror h2 {
+  font-family: var(--font-cormorant);
+  font-size: 1.6rem;
+  font-weight: 700;
+  margin: 1.5em 0 0.5em;
+}
+
+.ProseMirror h3 {
+  font-family: var(--font-cormorant);
+  font-size: 1.3rem;
+  font-weight: 600;
+  margin: 1.2em 0 0.4em;
+}
+
+.ProseMirror blockquote {
+  border-left: 3px solid var(--accent);
+  padding-left: 1.5em;
+  margin: 1.5em 0;
+  font-style: italic;
+  font-family: var(--font-cormorant);
+  font-size: 1.1em;
+  color: var(--text-muted);
+}
+
+.ProseMirror code {
+  font-family: var(--font-jetbrains);
+  background: var(--bg-tertiary);
+  padding: 0.2em 0.4em;
+  border-radius: 3px;
+  font-size: 0.875em;
+}
+
+.ProseMirror pre {
+  background: var(--text-primary);
+  color: var(--bg-primary);
+  padding: 1.25rem;
+  border-radius: 6px;
+  overflow-x: auto;
+  font-family: var(--font-jetbrains);
+  font-size: 0.875em;
+}
+
+/* ── Reading Mode Animation ──────────────────────────────────────────────────── */
+.reading-mode-enter {
+  animation: readingEnter 0.4s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+@keyframes readingEnter {
+  from { opacity: 0; transform: scale(0.98); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+/* ── Hot Topic Glow ──────────────────────────────────────────────────────────── */
+.hot-glow {
+  box-shadow: 0 0 0 2px var(--accent), 0 0 20px rgba(107, 30, 60, 0.15);
+}
+
+/* ── Skeleton Loading ─────────────────────────────────────────────────────────── */
+.skeleton {
+  @apply animate-pulse bg-parchment-200 dark:bg-ink-light rounded;
+}
+
+/* ── Print Styles ──────────────────────────────────────────────────────────────── */
+@media print {
+  header, footer, .ai-chat, .reading-toolbar, aside { display: none !important; }
+  body { font-size: 12pt; line-height: 1.6; }
+  a[href]::after { content: ' (' attr(href) ')'; font-size: 0.8em; }
+}
