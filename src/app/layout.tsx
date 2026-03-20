@@ -16,6 +16,7 @@ import AIChatWidget from '@/components/ai/AIChatWidget';
 import './globals.css';
 
 export const metadata: Metadata = {
+  metadataBase: new URL('https://blogs.oliprashant.com.np'),
   title: { default: 'Philosophia', template: '%s — Philosophia' },
   description: 'A literary journal of philosophical inquiry. Essays, dialogues, and poems exploring the examined life.',
   keywords: ['philosophy', 'ethics', 'existentialism', 'metaphysics', 'essays'],
