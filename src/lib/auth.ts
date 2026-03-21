@@ -86,8 +86,8 @@ export const authConfig: NextAuthConfig = {
     token.id = user.id;
     token.role = (user as any).role;
   }
-  // Re-fetch role from DB for OAuth users
-  if (token.id && !token.role) {
+  // Always re-fetch role from DB to get latest value
+  if (token.id) {
     const dbUser = await prisma.user.findUnique({
       where: { id: token.id as string },
       select: { role: true },
