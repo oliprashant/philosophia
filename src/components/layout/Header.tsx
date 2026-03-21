@@ -37,6 +37,7 @@ export default function Header() {
   const [catOpen, setCatOpen] = useState(false);
   const [genreOpen, setGenreOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [mounted, setMounted] = useState(false); // 👈 add this
   const catRef = useRef<HTMLDivElement>(null);
 
   // Detect scroll for shadow
@@ -58,6 +59,8 @@ export default function Header() {
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
   }, []);
+
+  useEffect(() => setMounted(true), []); // 👈 add here
 
   const isAdmin = (session?.user as any)?.role === 'ADMIN';
   const isAuthor = (session?.user as any)?.role === 'AUTHOR' || isAdmin;
@@ -161,8 +164,7 @@ export default function Header() {
               aria-label="Toggle theme"
               className="p-2 text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors"
             >
-              {resolvedTheme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
-            </button>
+             {mounted ? (resolvedTheme === 'dark' ? <Sun size={18} /> : <Moon size={18} />) : <Sun size={18} />}            </button>
 
             {/* Auth */}
             {session ? (
