@@ -82,12 +82,20 @@ export const authConfig: NextAuthConfig = {
   callbacks: {
     // Attach role + id to the JWT token
     async jwt({ token, user }) {
-      if (user) {
-        token.id = user.id;
-        token.role = (user as any).role;
-      }
-      return token;
-    },
+  if (user) {
+    token.id = user.id;
+    token.role = (user as any).role;
+  }
+  // Re-fetch role from DB for OAuth users
+  if (token.id && !token.role) {
+    const dbUser = await prisma.user.findUnique({
+      where: { id: token.id as string },
+      select: { role: true },
+    });
+    token.role = dbUser?.role ?? 'READER';
+  }
+  return token;
+},
 
     // Expose role + id on the client-side session object
     async session({ session, token }) {
