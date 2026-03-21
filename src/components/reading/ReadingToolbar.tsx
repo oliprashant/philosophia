@@ -129,7 +129,7 @@ function Toolbar() {
   );
 }
 
-// ── Exported wrapper (provides context) ────────────────────────────────────────
+// Replace only this bottom section (keep everything above exactly the same)
 export default function ReadingToolbar({
   postId,
   userId,
@@ -139,9 +139,5 @@ export default function ReadingToolbar({
   userId: string | null;
   initialHighlights: HighlightItem[];
 }) {
-  return (
-    <ReadingModeProvider postId={postId} userId={userId} initialHighlights={initialHighlights}>
-      <Toolbar />
-    </ReadingModeProvider>
-  );
+  return <Toolbar />; // 👈 removed ReadingModeProvider wrapper
 }
