@@ -11,18 +11,15 @@ export const authConfig: NextAuthConfig = {
         token.id = user.id;
         token.role = (user as any).role;
       }
-      if (token.id && !token.role) {
-        token.role = 'READER';
-      }
       return token;
     },
+    // 👇 this was missing — middleware needs this to see the role
     async session({ session, token }) {
       if (session.user) {
-        (session.user as any).id = token.id as string;
-        (session.user as any).role = token.role as string;
+        (session.user as any).role = token.role;
       }
       return session;
     },
   },
-  providers: [], // providers added in main auth.ts
+  providers: [],
 };
