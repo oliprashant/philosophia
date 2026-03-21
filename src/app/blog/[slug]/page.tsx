@@ -25,6 +25,8 @@ import Breadcrumbs from '@/components/layout/Breadcrumbs';
 import { auth } from '@/lib/auth';
 
 // ── Generate static params for ISR ───────────────────────────────────────────
+export const dynamicParams = true; // 👈 allow slugs not generated at build time
+
 export async function generateStaticParams() {
   const posts = await prisma.post.findMany({
     where: { published: true },
