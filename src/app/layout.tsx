@@ -12,7 +12,6 @@ import SessionWrapper from '@/components/auth/SessionWrapper';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
 import AIChatWidget from '@/components/ai/AIChatWidget';
-import ReadingModeProvider from '@/components/reading/ReadingModeProvider';
 import './globals.css';
 
 export const metadata: Metadata = {
@@ -63,7 +62,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         )}
         <ThemeProvider attribute="class" defaultTheme="light" enableSystem>
           <SessionWrapper>
-            <ReadingModeProvider>
+          
               <div className="flex flex-col min-h-screen bg-[var(--bg-primary)] text-[var(--text-primary)]">
                 <Header />
                 <main className="flex-1">
@@ -86,7 +85,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                   },
                 }}
               />
-            </ReadingModeProvider>
+           
           </SessionWrapper>
         </ThemeProvider>
       </body>
