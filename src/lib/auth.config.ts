@@ -13,7 +13,7 @@ export const authConfig: NextAuthConfig = {
       }
       return token;
     },
-    // 👇 this was missing — middleware needs this to see the role
+   
     async session({ session, token }) {
       if (session.user) {
         (session.user as any).role = token.role;

@@ -6,13 +6,16 @@ const { auth } = NextAuth(authConfig);
 
 export default auth((req) => {
   const isAdminRoute = req.nextUrl.pathname.startsWith('/admin');
-  const token = req.auth;
+  const session = req.auth;
+
+  console.log('Session:', JSON.stringify(session));
+  console.log('Role:', session?.user?.role);
 
   if (isAdminRoute) {
-    if (!token) {
+    if (!session) {
       return NextResponse.redirect(new URL('/auth/signin', req.url));
     }
-    if (token.user?.role !== 'ADMIN') {
+    if (session.user?.role !== 'ADMIN') {
       return NextResponse.redirect(new URL('/', req.url));
     }
   }
