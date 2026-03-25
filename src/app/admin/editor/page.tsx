@@ -179,14 +179,18 @@ function EditorWithSearchParams() {
     fd.append('type', 'cover');
     try {
       const res = await fetch('/api/upload', { method: 'POST', body: fd });
-      if (!res.ok) throw new Error();
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data?.error || 'Upload failed');
+      }
       const data = await res.json();
       setCoverImage(data.url);
       toast.success('Cover image uploaded');
-    } catch {
-      toast.error('Upload failed');
+    } catch (err: any) {
+      toast.error(err?.message || 'Upload failed');
     } finally {
       setUploading(false);
+      e.target.value = '';
     }
   };
 
@@ -194,20 +198,41 @@ function EditorWithSearchParams() {
   const insertImage = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !editor) return;
+
+    setUploading(true);
     const fd = new FormData();
     fd.append('file', file);
     fd.append('type', 'inline');
-    const res = await fetch('/api/upload', { method: 'POST', body: fd });
-    if (res.ok) {
+
+    try {
+      const res = await fetch('/api/upload', { method: 'POST', body: fd });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data?.error || 'Image upload failed');
+      }
+
       const data = await res.json();
-      editor.chain().focus().setImage({
-        src: data.url,
-        alt: '',
-        class: ALIGNMENT_CLASSES.center,
-        style: DEFAULT_IMAGE_STYLE,
-      }).run();
+      // Keep editor writable after image insert by forcing a paragraph after the image.
+      editor
+        .chain()
+        .focus()
+        .setImage({
+          src: data.url,
+          alt: '',
+          class: ALIGNMENT_CLASSES.center,
+          style: DEFAULT_IMAGE_STYLE,
+        })
+        .insertContent('<p></p>')
+        .focus('end')
+        .run();
+
+      toast.success('Image inserted');
+    } catch (err: any) {
+      toast.error(err?.message || 'Image upload failed');
+    } finally {
+      setUploading(false);
+      e.target.value = '';
     }
-    e.target.value = '';
   };
 
   const ensureClearAfterImage = (imagePos: number) => {
