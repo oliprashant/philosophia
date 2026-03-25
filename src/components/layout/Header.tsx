@@ -10,7 +10,6 @@
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { useRouter } from 'next/navigation';
 import { useSession, signOut } from 'next-auth/react';
 import { useTheme } from 'next-themes';
 import { Menu, X, Search, Sun, Moon, ChevronDown, User, BookOpen, Settings, LogOut, PenLine } from 'lucide-react';
@@ -31,7 +30,6 @@ const NAV_GENRES = [
 ];
 
 export default function Header() {
-  const router = useRouter();
   const { data: session } = useSession();
   const { resolvedTheme, setTheme } = useTheme();
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -41,6 +39,7 @@ export default function Header() {
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [mounted, setMounted] = useState(false); // 👈 add this
   const catRef = useRef<HTMLDivElement>(null);
+  const userMenuRef = useRef<HTMLDivElement>(null);
 
   // Detect scroll for shadow
   useEffect(() => {
@@ -52,7 +51,11 @@ export default function Header() {
   // Close dropdowns on outside click
   useEffect(() => {
     const handler = (e: MouseEvent) => {
-      if (catRef.current && !catRef.current.contains(e.target as Node)) {
+      const target = e.target as Node;
+      const insideNav = catRef.current?.contains(target) ?? false;
+      const insideUserMenu = userMenuRef.current?.contains(target) ?? false;
+
+      if (!insideNav && !insideUserMenu) {
         setCatOpen(false);
         setGenreOpen(false);
         setUserMenuOpen(false);
@@ -170,7 +173,7 @@ export default function Header() {
 
             {/* Auth */}
             {session ? (
-              <div className="relative">
+              <div className="relative" ref={userMenuRef}>
                 <button
                   onClick={() => setUserMenuOpen(!userMenuOpen)}
                   className="flex items-center gap-2 focus-ring rounded-full"
@@ -197,24 +200,20 @@ export default function Header() {
                       <p className="text-sm font-medium truncate">{session.user?.name}</p>
                       <p className="text-xs text-[var(--text-faint)] truncate">{session.user?.email}</p>
                     </div>
-                    <button
-                      onClick={() => {
-                        setUserMenuOpen(false);
-                        router.push('/profile');
-                      }}
-                      className="w-full text-left flex items-center gap-2 px-4 py-2 text-sm font-sans hover:bg-[var(--bg-secondary)] transition-colors"
+                    <Link
+                      href="/profile"
+                      onClick={() => setUserMenuOpen(false)}
+                      className="flex items-center gap-2 px-4 py-2 text-sm font-sans hover:bg-[var(--bg-secondary)] transition-colors"
                     >
                       <User size={14} /> Profile
-                    </button>
-                    <button
-                      onClick={() => {
-                        setUserMenuOpen(false);
-                        router.push('/profile?tab=saved');
-                      }}
-                      className="w-full text-left flex items-center gap-2 px-4 py-2 text-sm font-sans hover:bg-[var(--bg-secondary)] transition-colors"
+                    </Link>
+                    <Link
+                      href="/profile?tab=saved"
+                      onClick={() => setUserMenuOpen(false)}
+                      className="flex items-center gap-2 px-4 py-2 text-sm font-sans hover:bg-[var(--bg-secondary)] transition-colors"
                     >
                       <BookOpen size={14} /> Saved Posts
-                    </button>
+                    </Link>
                     {isAuthor && (
                       <Link href="/admin/editor" className="flex items-center gap-2 px-4 py-2 text-sm font-sans hover:bg-[var(--bg-secondary)] transition-colors" onClick={() => setUserMenuOpen(false)}>
                         <PenLine size={14} /> Write
