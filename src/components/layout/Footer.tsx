@@ -12,9 +12,7 @@ const FOOTER_LINKS = {
   ],
   Community: [
     { label: 'About', href: '/about' },
-    { label: 'Writers', href: '/writers' },
     { label: 'Newsletter', href: '/#newsletter' },
-    { label: 'Suggest an Edit', href: '/suggest' },
   ],
   Legal: [
     { label: 'Privacy Policy', href: '/privacy' },

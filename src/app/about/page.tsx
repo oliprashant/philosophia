@@ -13,7 +13,7 @@ export default function AboutPage() {
       <div className="text-center mb-16">
         <div className="flex items-center justify-center gap-4 mb-6">
           <div className="h-px w-12 bg-[var(--gold)]" />
-          <span className="text-[var(--gold)] text-xs font-sans uppercase tracking-[0.3em]">Est. MMX</span>
+          <span className="text-[var(--gold)] text-xs font-sans uppercase tracking-[0.3em]">Est. 2025</span>
           <div className="h-px w-12 bg-[var(--gold)]" />
         </div>
         <h1 className="text-5xl font-bold mb-4" style={{ fontFamily: 'var(--font-cormorant)' }}>

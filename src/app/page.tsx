@@ -9,13 +9,12 @@ import HotTopics from '@/components/blog/HotTopics';
 import CategoryStrip from '@/components/home/CategoryStrip';
 import HumourSection from '@/components/home/HumourSection';
 import NewsletterSection from '@/components/home/NewsletterSection';
-import WriterSpotlight from '@/components/home/WriterSpotlight';
 import Clock from '@/components/ui/Clock';
 import { PostSummary } from '@/types';
 
 // ── Data fetching (Server Component) ─────────────────────────────────────────
 async function getHomeData() {
-  const [featured, recent, categories, humours, hotTopics, topAuthors] = await Promise.all([
+  const [featured, recent, categories, humours, hotTopics] = await Promise.all([
     // Featured post (singular hero)
     prisma.post.findFirst({
       where: { published: true, featured: true },
@@ -87,22 +86,14 @@ async function getHomeData() {
       orderBy: { upvotes: { _count: 'desc' } },
     }),
 
-    // Top authors (most published posts)
-    prisma.user.findMany({
-      where: { role: { in: ['AUTHOR', 'ADMIN'] } },
-      take: 4,
-      include: {
-        _count: { select: { posts: { where: { published: true } } } },
-      },
-    }),
   ]);
 
-  return { featured, recent, categories, humours, hotTopics, topAuthors };
+  return { featured, recent, categories, humours, hotTopics };
 }
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 export default async function HomePage() {
-  const { featured, recent, categories, humours, hotTopics, topAuthors } = await getHomeData();
+  const { featured, recent, categories, humours, hotTopics } = await getHomeData();
 
   // Normalize tags for PostSummary type
   const normalizePosts = (posts: any[]): PostSummary[] =>
@@ -170,11 +161,6 @@ export default async function HomePage() {
             />
           )
         ))}
-
-        {/* ── Writer spotlight ── */}
-        {topAuthors.length > 0 && (
-          <WriterSpotlight authors={topAuthors} />
-        )}
 
         {/* ── Newsletter ── */}
         <NewsletterSection />

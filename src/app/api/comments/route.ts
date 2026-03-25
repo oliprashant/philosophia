@@ -40,27 +40,26 @@ export async function GET(req: NextRequest) {
   if (!postId) return NextResponse.json({ error: 'postId required' }, { status: 400 });
 
   try {
+    const page = Math.max(1, parseInt(searchParams.get('page') || '1'));
+    const limit = 30;
+    const skip = (page - 1) * limit;
+    const deleted = searchParams.get('includeDeleted') === 'true';
+
+    // Fetch count for pagination
+    const total = await prisma.comment.count({
+      where: { postId, parentId: null, ...(deleted ? {} : { deleted: false }) },
+    });
+
+    // Fetch only top-level comments (no nested replies yet)
     const comments = await prisma.comment.findMany({
-      where: { postId, parentId: null }, // top-level only; replies nested below
+      where: { postId, parentId: null, ...(deleted ? {} : { deleted: false }) },
       orderBy: { createdAt: 'desc' },
+      skip,
+      take: limit,
       include: {
         author: { select: { id: true, name: true, image: true, bio: true, role: true } },
-        _count: { select: { upvotes: true } },
-        replies: {
-          orderBy: { createdAt: 'asc' },
-          include: {
-            author: { select: { id: true, name: true, image: true, bio: true, role: true } },
-            _count: { select: { upvotes: true } },
-            replies: {  // second level
-              orderBy: { createdAt: 'asc' },
-              include: {
-                author: { select: { id: true, name: true, image: true, bio: true, role: true } },
-                _count: { select: { upvotes: true } },
-                replies: { include: { author: { select: { id: true, name: true, image: true, bio: true, role: true } }, _count: { select: { upvotes: true } } } },
-              },
-            },
-          },
-        },
+        _count: { select: { upvotes: true, replies: true } },
+        replies: undefined, // Don't fetch replies yet - use lazy loading
       },
     });
 
@@ -71,7 +70,16 @@ export async function GET(req: NextRequest) {
       replies: c.replies?.map(serialize) ?? [],
     });
 
-    return NextResponse.json({ comments: comments.map(serialize) });
+    return NextResponse.json({
+      comments: comments.map(serialize),
+      pagination: {
+        page,
+        limit,
+        total,
+        pages: Math.ceil(total / limit),
+        hasMore: page < Math.ceil(total / limit),
+      },
+    });
   } catch (err) {
     console.error('[Comments GET]', err);
     return NextResponse.json({ error: 'Failed to load comments' }, { status: 500 });

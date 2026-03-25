@@ -162,6 +162,12 @@ model Post {
   savedBy     SavedPost[]
   readHistory ReadingHistory[]
 
+  // Indexes for common queries
+  @@index([published, publishedAt]) // For blog listing/filtering
+  @@index([categoryId])             // For related posts by category
+  @@index([slug])                   // For slug lookups (already UNIQUE)
+  @@index([authorId])               // For author posts lookup
+
   @@map("posts")
 }
 
@@ -204,6 +210,10 @@ model Comment {
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   deleted   Boolean   @default(false)
+
+  // Indexes for common queries
+  @@index([postId, parentId]) // For comment queries (top-level and replies)
+  @@index([authorId])         // For user comments lookup
 
   @@map("comments")
 }

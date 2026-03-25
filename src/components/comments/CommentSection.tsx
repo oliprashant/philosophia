@@ -2,32 +2,40 @@
 // src/components/comments/CommentSection.tsx
 // Full comment section with:
 // - Anonymous + authenticated comments
-// - Threaded replies
+// - Threaded replies (lazy-loaded)
 // - Upvoting
 // - Edit / delete for own comments
+// - Pagination for initial load
 
 import { useState, useEffect } from 'react';
 import { formatDistanceToNow } from 'date-fns';
-import { MessageSquare, ThumbsUp, Reply, MoreHorizontal, Trash2, Loader2 } from 'lucide-react';
+import { MessageSquare, ThumbsUp, Reply, MoreHorizontal, Trash2, Loader2, ChevronDown } from 'lucide-react';
 import Image from 'next/image';
 import toast from 'react-hot-toast';
 import type { CommentWithAuthor } from '@/types';
 
-// ── Single comment ─────────────────────────────────────────────────────────────
+// ── Single comment with lazy-loaded replies ────────────────────────────────────
 function Comment({
   comment, userId, depth = 0,
-  onReply, onDelete,
+  onReply, onDelete, expanded, onToggleReplies,
 }: {
   comment: CommentWithAuthor;
   userId: string | null;
   depth?: number;
   onReply: (parentId: string, parentName: string) => void;
   onDelete: (id: string) => void;
+  expanded?: boolean;
+  onToggleReplies?: (id: string) => void;
 }) {
   const [upvoted, setUpvoted] = useState(false);
   const [upvoteCount, setUpvoteCount] = useState(comment._count.upvotes);
+  const [loadingReplies, setLoadingReplies] = useState(false);
+  const [replies, setReplies] = useState(comment.replies ?? []);
+  const [showReplies, setShowReplies] = useState(expanded ?? false);
+
   const isOwn = userId && comment.author?.id === userId;
   const displayName = comment.author?.name ?? comment.guestName ?? 'Anonymous';
+  const replyCount = comment._count?.replies ?? 0;
 
   const handleUpvote = async () => {
     if (upvoted) return;
@@ -40,11 +48,31 @@ function Comment({
     }).catch(() => { setUpvoted(false); setUpvoteCount(c => c - 1); });
   };
 
+  const handleToggleReplies = async () => {
+    if (showReplies) {
+      setShowReplies(false);
+    } else if (replies.length === 0 && replyCount > 0) {
+      // Need to fetch replies
+      setLoadingReplies(true);
+      try {
+        const res = await fetch(`/api/comments/${comment.id}/replies?depth=3`);
+        if (!res.ok) throw new Error();
+        const data = await res.json();
+        setReplies(data.replies ?? []);
+      } catch {
+        toast.error('Could not load replies');
+      } finally {
+        setLoadingReplies(false);
+      }
+    }
+    setShowReplies(true);
+  };
+
   if (comment.deleted) {
     return (
       <div className={`${depth > 0 ? 'ml-8 border-l border-[var(--border)] pl-4' : ''} py-3`}>
         <p className="text-xs font-sans text-[var(--text-faint)] italic">[Comment removed]</p>
-        {comment.replies?.map(r => (
+        {replies?.map(r => (
           <Comment key={r.id} comment={r} userId={userId} depth={depth + 1} onReply={onReply} onDelete={onDelete} />
         ))}
       </div>
@@ -55,7 +83,7 @@ function Comment({
     <div className={`${depth > 0 ? 'ml-8 border-l-2 border-[var(--border)] pl-4' : ''}`}>
       <div className="py-4">
         <div className="flex items-start justify-between gap-3">
-          <div className="flex items-start gap-3">
+          <div className="flex items-start gap-3 flex-1">
             {/* Avatar */}
             {comment.author?.image ? (
               <Image src={comment.author.image} alt={displayName} width={32} height={32} className="rounded-full shrink-0" />
@@ -75,7 +103,7 @@ function Comment({
                 {comment.content}
               </p>
               {/* Actions */}
-              <div className="flex items-center gap-4 mt-2">
+              <div className="flex items-center gap-4 mt-2 flex-wrap">
                 <button
                   onClick={handleUpvote}
                   disabled={upvoted}
@@ -89,6 +117,22 @@ function Comment({
                     className="flex items-center gap-1 text-xs font-sans text-[var(--text-faint)] hover:text-[var(--accent)] transition-colors"
                   >
                     <Reply size={12} /> Reply
+                  </button>
+                )}
+                {replyCount > 0 && (
+                  <button
+                    onClick={handleToggleReplies}
+                    disabled={loadingReplies}
+                    className="flex items-center gap-1 text-xs font-sans text-[var(--text-faint)] hover:text-[var(--accent)] transition-colors"
+                  >
+                    {loadingReplies ? (
+                      <Loader2 size={12} className="animate-spin" />
+                    ) : (
+                      <>
+                        <ChevronDown size={12} className={`transition-transform ${showReplies ? 'rotate-180' : ''}`} />
+                        {replyCount} {replyCount === 1 ? 'reply' : 'replies'}
+                      </>
+                    )}
                   </button>
                 )}
                 {isOwn && (
@@ -106,8 +150,8 @@ function Comment({
       </div>
 
       {/* Nested replies */}
-      {comment.replies?.map(r => (
-        <Comment key={r.id} comment={r} userId={userId} depth={depth + 1} onReply={onReply} onDelete={onDelete} />
+      {showReplies && replies?.map(r => (
+        <Comment key={r.id} comment={r} userId={userId} depth={depth + 1} onReply={onReply} onDelete={onDelete} expanded />
       ))}
     </div>
   );
@@ -201,28 +245,72 @@ function CommentForm({
 }
 
 // ── Main section ───────────────────────────────────────────────────────────────
+interface CommentSectionProps {
+  postId: string;
+  userId: string | null;
+  userName: string | null;
+  initialComments?: CommentWithAuthor[];
+}
+
 export default function CommentSection({
-  postId, userId, userName,
-}: { postId: string; userId: string | null; userName: string | null }) {
-  const [comments, setComments] = useState<CommentWithAuthor[]>([]);
-  const [loading, setLoading] = useState(true);
+  postId, userId, userName, initialComments = [],
+}: CommentSectionProps) {
+  const [comments, setComments] = useState<CommentWithAuthor[]>(initialComments);
+  const [pagination, setPagination] = useState({ page: 1, limit: 30, total: 0, pages: 1, hasMore: false });
+  const [loading, setLoading] = useState(initialComments.length === 0);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [replyTo, setReplyTo] = useState<{ id: string; name: string } | null>(null);
 
+  // Load initial comments if not provided
   useEffect(() => {
-    fetch(`/api/comments?postId=${postId}`)
+    if (initialComments.length > 0) {
+      setLoading(false);
+      return;
+    }
+
+    fetch(`/api/comments?postId=${postId}&page=1`)
       .then(r => r.json())
-      .then(d => setComments(d.comments ?? []))
+      .then(d => {
+        setComments(d.comments ?? []);
+        setPagination(d.pagination ?? { page: 1, limit: 30, total: 0, pages: 1, hasMore: false });
+      })
+      .catch(() => {
+        setComments([]);
+      })
       .finally(() => setLoading(false));
-  }, [postId]);
+  }, [postId, initialComments]);
+
+  const handleLoadMore = async () => {
+    const nextPage = pagination.page + 1;
+    setLoadingMore(true);
+    try {
+      const res = await fetch(`/api/comments?postId=${postId}&page=${nextPage}`);
+      if (!res.ok) throw new Error();
+      const data = await res.json();
+      setComments(prev => [...prev, ...(data.comments ?? [])]);
+      setPagination(data.pagination ?? { page: nextPage, limit: 30, total: 0, pages: 1, hasMore: false });
+    } catch {
+      toast.error('Could not load more comments');
+    } finally {
+      setLoadingMore(false);
+    }
+  };
 
   const handleNewComment = (comment: CommentWithAuthor) => {
     if (comment.parentId) {
-      // Nest reply
-      setComments(prev => prev.map(c =>
-        c.id === comment.parentId
-          ? { ...c, replies: [...(c.replies ?? []), comment] }
-          : c
-      ));
+      // Nest reply under parent - find it in comments tree
+      const updateCommentTree = (comments: CommentWithAuthor[]): CommentWithAuthor[] => {
+        return comments.map(c => {
+          if (c.id === comment.parentId) {
+            return { ...c, replies: [...(c.replies ?? []), comment] };
+          }
+          if (c.replies?.length) {
+            return { ...c, replies: updateCommentTree(c.replies) };
+          }
+          return c;
+        });
+      };
+      setComments(updateCommentTree(comments));
     } else {
       setComments(prev => [comment, ...prev]);
     }
@@ -231,7 +319,9 @@ export default function CommentSection({
   const handleDelete = async (id: string) => {
     if (!confirm('Delete this comment?')) return;
     await fetch(`/api/comments/${id}`, { method: 'DELETE' });
-    setComments(prev => prev.map(c => c.id === id ? { ...c, deleted: true } : c));
+    const softDelete = (comments: CommentWithAuthor[]): CommentWithAuthor[] =>
+      comments.map(c => c.id === id ? { ...c, deleted: true } : { ...c, replies: c.replies ? softDelete(c.replies) : undefined });
+    setComments(softDelete(comments));
   };
 
   const topLevel = comments.filter(c => !c.parentId);
@@ -241,7 +331,7 @@ export default function CommentSection({
       <h2 className="section-title mb-8 flex items-center gap-3">
         <MessageSquare size={22} className="text-[var(--accent)]" />
         Discussion
-        {!loading && <span className="text-lg text-[var(--text-faint)] font-sans font-normal">({comments.length})</span>}
+        {!loading && <span className="text-lg text-[var(--text-faint)] font-sans font-normal">({pagination.total})</span>}
       </h2>
 
       {/* Top-level form */}
@@ -263,28 +353,46 @@ export default function CommentSection({
           No comments yet. Begin the dialogue.
         </p>
       ) : (
-        <div className="divide-y divide-[var(--border)]">
-          {topLevel.map(comment => (
-            <div key={comment.id}>
-              <Comment
-                comment={comment} userId={userId}
-                onReply={(id, name) => setReplyTo({ id, name })}
-                onDelete={handleDelete}
-              />
-              {/* Reply form */}
-              {replyTo?.id === comment.id && (
-                <div className="ml-8 mb-4 p-4 bg-[var(--bg-secondary)] border border-[var(--border)]">
-                  <CommentForm
-                    postId={postId} userId={userId} userName={userName}
-                    parentId={comment.id} replyingTo={replyTo.name}
-                    onCancel={() => setReplyTo(null)}
-                    onSuccess={c => { handleNewComment(c); setReplyTo(null); }}
-                  />
-                </div>
-              )}
+        <>
+          <div className="divide-y divide-[var(--border)]">
+            {topLevel.map(comment => (
+              <div key={comment.id}>
+                <Comment
+                  comment={comment} userId={userId}
+                  onReply={(id, name) => setReplyTo({ id, name })}
+                  onDelete={handleDelete}
+                />
+                {/* Reply form */}
+                {replyTo?.id === comment.id && (
+                  <div className="ml-8 mb-4 p-4 bg-[var(--bg-secondary)] border border-[var(--border)]">
+                    <CommentForm
+                      postId={postId} userId={userId} userName={userName}
+                      parentId={comment.id} replyingTo={replyTo.name}
+                      onCancel={() => setReplyTo(null)}
+                      onSuccess={c => { handleNewComment(c); setReplyTo(null); }}
+                    />
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+
+          {/* Load more button */}
+          {pagination.hasMore && (
+            <div className="flex justify-center py-8">
+              <button
+                onClick={handleLoadMore}
+                disabled={loadingMore}
+                className="px-6 py-2 text-sm font-sans border border-[var(--border)] hover:border-[var(--accent)] hover:text-[var(--accent)] disabled:opacity-50 transition-colors"
+              >
+                {loadingMore ? (
+                  <Loader2 size={14} className="animate-spin inline mr-2" />
+                ) : null}
+                Load more comments
+              </button>
             </div>
-          ))}
-        </div>
+          )}
+        </>
       )}
     </section>
   );

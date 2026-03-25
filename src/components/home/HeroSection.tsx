@@ -14,7 +14,7 @@ export default function HeroSection() {
         {/* Ornamental line */}
         <div className="flex items-center justify-center gap-4 mb-10">
           <div className="h-px w-16 bg-[var(--gold)]" />
-          <span className="text-[var(--gold)] text-xs font-sans uppercase tracking-[0.3em]">Est. MMX</span>
+          <span className="text-[var(--gold)] text-xs font-sans uppercase tracking-[0.3em]">Est. 2025</span>
           <div className="h-px w-16 bg-[var(--gold)]" />
         </div>
 

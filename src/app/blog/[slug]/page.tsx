@@ -9,6 +9,7 @@ import CommentSection from '@/components/comments/CommentSection';
 import RelatedPosts from '@/components/blog/RelatedPosts';
 import ShareButtons from '@/components/blog/ShareButtons';
 import UpvoteButton from '@/components/blog/UpvoteButton';
+import SaveButton from '@/components/blog/SaveButton';
 import AISummaryButton from '@/components/ai/AISummaryButton';
 import SuggestionModal from '@/components/blog/SuggestionModal';
 import Breadcrumbs from '@/components/layout/Breadcrumbs';
@@ -87,6 +88,68 @@ async function getRelatedPosts(postId: string, categoryId: string | null, tagIds
   });
 }
 
+async function getInitialComments(postId: string) {
+  try {
+    const comments = await prisma.comment.findMany({
+      where: { postId, parentId: null, deleted: false },
+      orderBy: { createdAt: 'desc' },
+      take: 30,
+      include: {
+        author: { select: { id: true, name: true, image: true, bio: true, role: true } },
+        _count: { select: { upvotes: true, replies: true } },
+        replies: undefined, // Don't fetch replies on initial load
+      },
+    });
+
+    const total = await prisma.comment.count({
+      where: { postId, parentId: null, deleted: false },
+    });
+
+    return comments.map(c => ({
+      ...c,
+      createdAt: c.createdAt.toISOString(),
+      updatedAt: c.updatedAt.toISOString(),
+      replies: [],
+      _count: { ...c._count, upvotes: c._count.upvotes },
+    }));
+  } catch {
+    return [];
+  }
+}
+
+async function getHighlights(userId: string, postId: string) {
+  try {
+    return await prisma.highlight.findMany({
+      where: { userId, postId },
+      orderBy: { createdAt: 'asc' },
+    });
+  } catch {
+    return [];
+  }
+}
+
+async function checkUpvoted(userId: string, postId: string) {
+  try {
+    const upvote = await prisma.upvote.findUnique({
+      where: { userId_postId: { userId, postId } },
+    });
+    return !!upvote;
+  } catch {
+    return false;
+  }
+}
+
+async function checkSaved(userId: string, postId: string) {
+  try {
+    const saved = await prisma.savedPost.findUnique({
+      where: { userId_postId: { userId, postId } },
+    });
+    return !!saved;
+  } catch {
+    return false;
+  }
+}
+
 export default async function ArticlePage({ params }: { params: { slug: string } }) {
   const [post, session] = await Promise.all([
     getPost(params.slug),
@@ -96,7 +159,16 @@ export default async function ArticlePage({ params }: { params: { slug: string }
   if (!post) notFound();
 
   const tagIds = post.tags.map((pt: any) => pt.tagId);
-  const relatedRaw = await getRelatedPosts(post.id, post.categoryId, tagIds);
+  const userId = (session?.user as any)?.id ?? null;
+
+  // Parallelize these queries for better performance
+  const [relatedRaw, hasUpvoted, hasSaved, highlights, initialComments] = await Promise.all([
+    getRelatedPosts(post.id, post.categoryId, tagIds),
+    userId ? checkUpvoted(userId, post.id) : Promise.resolve(false),
+    userId ? checkSaved(userId, post.id) : Promise.resolve(false),
+    userId ? getHighlights(userId, post.id) : Promise.resolve([]),
+    getInitialComments(post.id),
+  ]);
 
   const normalizePost = (p: any) => ({
     ...p,
@@ -108,25 +180,8 @@ export default async function ArticlePage({ params }: { params: { slug: string }
 
   const fullPost = normalizePost(post);
   const related = relatedRaw.map(normalizePost);
-  const userId = (session?.user as any)?.id ?? null;
   const siteUrl = process.env.NEXTAUTH_URL || 'https://philosophia.blog';
   const postUrl = `${siteUrl}/blog/${post.slug}`;
-
-  let hasUpvoted = false;
-  if (userId) {
-    const upvote = await prisma.upvote.findUnique({
-      where: { userId_postId: { userId, postId: post.id } },
-    });
-    hasUpvoted = !!upvote;
-  }
-
-  let highlights: any[] = [];
-  if (userId) {
-    highlights = await prisma.highlight.findMany({
-      where: { userId, postId: post.id },
-      orderBy: { createdAt: 'asc' },
-    });
-  }
 
   return (
     <div className="min-h-screen bg-[var(--bg-primary)]">
@@ -150,6 +205,7 @@ export default async function ArticlePage({ params }: { params: { slug: string }
             <UpvoteButton postId={post.id} initialCount={post._count.upvotes} initialState={hasUpvoted} />
             <AISummaryButton postId={post.id} cachedSummary={post.aiSummary} title={post.title} />
             <SuggestionModal postId={post.id} userId={userId} />
+            <SaveButton postId={post.id} initialState={hasSaved} />
             <div className="ml-auto">
               <ShareButtons url={postUrl} title={post.title} />
             </div>
@@ -157,7 +213,7 @@ export default async function ArticlePage({ params }: { params: { slug: string }
 
           <ArticleContent content={post.content} />
 
-               {fullPost.tags.length > 0 && (
+          {fullPost.tags.length > 0 && (
             <div className="flex flex-wrap gap-2 mt-10 pt-6 border-t border-[var(--border)]">
               {fullPost.tags.map((tag: any) => (
                 <a
@@ -180,7 +236,12 @@ export default async function ArticlePage({ params }: { params: { slug: string }
       )}
 
       <div className="max-w-3xl mx-auto px-4 sm:px-6 pb-20">
-        <CommentSection postId={post.id} userId={userId} userName={session?.user?.name ?? null} />
+        <CommentSection 
+          postId={post.id} 
+          userId={userId} 
+          userName={session?.user?.name ?? null}
+          initialComments={initialComments}
+        />
       </div>
     </div>
   );
