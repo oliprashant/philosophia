@@ -12,6 +12,33 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const postId = searchParams.get('postId');
   const userIdParam = searchParams.get('userId');
+  const adminMode = searchParams.get('admin') === 'true';
+
+  if (adminMode) {
+    const session = await auth();
+    if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    if ((session.user as any).role !== 'ADMIN') return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+
+    const comments = await prisma.comment.findMany({
+      orderBy: { createdAt: 'desc' },
+      take: 500,
+      include: {
+        author: { select: { id: true, name: true, image: true, role: true } },
+        post: { select: { id: true, title: true, slug: true } },
+      },
+    });
+
+    return NextResponse.json({
+      comments: comments.map(c => ({
+        id: c.id,
+        text: c.content,
+        author: { name: c.author?.name ?? c.guestName ?? 'Anonymous' },
+        post: c.post,
+        status: c.deleted ? 'Spam' : 'Approved',
+        createdAt: c.createdAt.toISOString(),
+      })),
+    });
+  }
 
   if (userIdParam === 'me') {
     const session = await auth();

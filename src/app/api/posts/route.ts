@@ -22,6 +22,9 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const session = await auth();
   const userId = (session?.user as any)?.id as string | undefined;
+  const role = (session?.user as any)?.role as string | undefined;
+  const adminMode = searchParams.get('admin') === 'true';
+  const isAdmin = role === 'ADMIN';
 
   const page = Math.max(1, parseInt(searchParams.get('page') || '1'));
   const limit = Math.min(50, parseInt(searchParams.get('limit') || '12'));
@@ -43,7 +46,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const where: any = { published: true };
+  const where: any = adminMode && isAdmin ? {} : { published: true };
 
   if (q) {
     where.OR = [
