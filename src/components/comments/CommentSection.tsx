@@ -67,7 +67,7 @@ function Comment({
             <div className="flex-1 min-w-0">
               <div className="flex items-baseline gap-2 flex-wrap">
                 <span className="text-sm font-medium text-[var(--text-primary)]">{displayName}</span>
-                <time className="text-xs text-[var(--text-faint)] font-sans">
+                <time className="text-xs text-[var(--text-faint)] font-sans" suppressHydrationWarning>
                   {formatDistanceToNow(new Date(comment.createdAt), { addSuffix: true })}
                 </time>
               </div>
