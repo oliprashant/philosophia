@@ -17,6 +17,7 @@ import { auth } from '@/lib/auth';
 import { ReadingModeProvider } from '@/hooks/useReadingMode';
 
 export const dynamicParams = true;
+export const revalidate = 60; // ISR: Revalidate every 60 seconds
 
 export async function generateStaticParams() {
   try {
@@ -67,42 +68,64 @@ async function getPost(slug: string) {
 }
 
 async function getRelatedPosts(postId: string, categoryId: string | null, tagIds: string[]) {
-  return prisma.post.findMany({
-    where: {
-      published: true,
-      id: { not: postId },
-      OR: [
-        categoryId ? { categoryId } : {},
-        tagIds.length ? { tags: { some: { tagId: { in: tagIds } } } } : {},
-      ],
-    },
-    take: 3,
-    orderBy: { publishedAt: 'desc' },
-    include: {
-      author: { select: { id: true, name: true, image: true, bio: true, role: true } },
-      category: true,
-      humour: true,
-      tags: { include: { tag: true } },
-      _count: { select: { upvotes: true, comments: true } },
-    },
-  });
+  // Prioritize category matches first, then tag matches if needed
+  let relatedPosts = [];
+  
+  if (categoryId) {
+    relatedPosts = await prisma.post.findMany({
+      where: {
+        published: true,
+        id: { not: postId },
+        categoryId,
+      },
+      take: 3,
+      orderBy: { publishedAt: 'desc' },
+      include: {
+        author: { select: { id: true, name: true, image: true, bio: true, role: true } },
+        category: true,
+        humour: true,
+        tags: { include: { tag: true } },
+        _count: { select: { upvotes: true, comments: true } },
+      },
+    });
+  }
+
+  // If not enough category matches, add tag-based matches
+  if (relatedPosts.length < 3 && tagIds.length > 0) {
+    const additionalPosts = await prisma.post.findMany({
+      where: {
+        published: true,
+        id: { not: postId, notIn: relatedPosts.map(p => p.id) },
+        tags: { some: { tagId: { in: tagIds } } },
+      },
+      take: 3 - relatedPosts.length,
+      orderBy: { publishedAt: 'desc' },
+      include: {
+        author: { select: { id: true, name: true, image: true, bio: true, role: true } },
+        category: true,
+        humour: true,
+        tags: { include: { tag: true } },
+        _count: { select: { upvotes: true, comments: true } },
+      },
+    });
+    relatedPosts = relatedPosts.concat(additionalPosts);
+  }
+
+  return relatedPosts;
 }
 
 async function getInitialComments(postId: string) {
   try {
+    // Reduced from 30 to 10 to improve load time
     const comments = await prisma.comment.findMany({
       where: { postId, parentId: null, deleted: false },
       orderBy: { createdAt: 'desc' },
-      take: 30,
+      take: 10,
       include: {
         author: { select: { id: true, name: true, image: true, bio: true, role: true } },
         _count: { select: { upvotes: true, replies: true } },
         replies: undefined, // Don't fetch replies on initial load
       },
-    });
-
-    const total = await prisma.comment.count({
-      where: { postId, parentId: null, deleted: false },
     });
 
     return comments.map(c => ({

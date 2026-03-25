@@ -57,7 +57,7 @@ export default function ArticleHeader({ post }: { post: PostFull }) {
 
       {/* Author + Meta */}
       <div className="flex items-center justify-between flex-wrap gap-4">
-        <Link href={`/writers/${post.author.id}`} className="flex items-center gap-3 group">
+        <div className="flex items-center gap-3">
           {post.author.image ? (
             <Image
               src={post.author.image} alt={post.author.name ?? ''}
@@ -70,14 +70,14 @@ export default function ArticleHeader({ post }: { post: PostFull }) {
             </div>
           )}
           <div>
-            <p className="text-sm font-medium text-[var(--text-primary)] group-hover:text-[var(--accent)] transition-colors">
+            <p className="text-sm font-medium text-[var(--text-primary)]">
               {post.author.name}
             </p>
             <time className="text-xs text-[var(--text-faint)] font-sans" dateTime={publishDate.toISOString()}>
               {format(publishDate, 'MMMM d, yyyy')}
             </time>
           </div>
-        </Link>
+        </div>
 
         <div className="flex items-center gap-5 text-xs font-sans text-[var(--text-faint)]">
           {post.readingTime && (
