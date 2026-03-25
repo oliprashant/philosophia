@@ -112,6 +112,11 @@ function SignInContent() {
                   {showPwd ? <EyeOff size={15} /> : <Eye size={15} />}
                 </button>
               </div>
+              <div className="mt-2 text-right">
+                <Link href="/auth/forgot-password" className="text-xs font-sans text-[var(--accent)] hover:underline">
+                  Forgot password?
+                </Link>
+              </div>
             </div>
             <button
               type="submit" disabled={!!loading}

@@ -35,6 +35,7 @@ model User {
   highlights    Highlight[]
   savedPosts    SavedPost[]
   readingHistory ReadingHistory[]
+  passwordResetTokens PasswordResetToken[]
   newsletter    NewsletterSubscription?
 
   @@map("users")
@@ -304,6 +305,20 @@ model ReadingHistory {
 
   @@unique([userId, postId])
   @@map("reading_history")
+}
+
+// ─── Password Reset ─────────────────────────────────────────────────────────
+model PasswordResetToken {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String   @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+
+  @@index([userId, expiresAt])
+  @@map("password_reset_tokens")
 }
 
 // ─── Newsletter ───────────────────────────────────────────────────────────────

@@ -25,7 +25,7 @@ export default function AboutPage() {
       </div>
 
       {/* Body */}
-      <div className="prose prose-philosophia max-w-none">
+      <div className="prose prose-philosophia dark:prose-invert max-w-none">
         <p>
           Philosophy does not belong to universities. It belongs to the sleepless at 3 a.m., 
           to the grieving and the joyful, to anyone who has stood at the edge of a question 

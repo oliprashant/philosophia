@@ -57,7 +57,7 @@ export default function ArticleContent({ content }: Props) {
       ref={ref}
       id="article-body"
       className={`
-        prose prose-philosophia max-w-none
+        prose prose-philosophia dark:prose-invert max-w-none
         ${readingMode ? 'reading-mode reading-mode-enter' : ''}
         transition-all duration-300
       `}

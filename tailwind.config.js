@@ -111,6 +111,20 @@ module.exports = {
             '--tw-prose-quote-borders': theme('colors.burgundy.DEFAULT'),
             '--tw-prose-code': theme('colors.burgundy.DEFAULT'),
             '--tw-prose-pre-bg': theme('colors.ink.DEFAULT'),
+
+            // Dark-mode prose tokens used by `prose-invert`
+            '--tw-prose-invert-body': theme('colors.parchment[200]'),
+            '--tw-prose-invert-headings': theme('colors.parchment[100]'),
+            '--tw-prose-invert-links': theme('colors.gold.light'),
+            '--tw-prose-invert-bold': theme('colors.parchment[100]'),
+            '--tw-prose-invert-counters': theme('colors.parchment[300]'),
+            '--tw-prose-invert-bullets': theme('colors.gold.DEFAULT'),
+            '--tw-prose-invert-hr': theme('colors.ink.light'),
+            '--tw-prose-invert-quotes': theme('colors.parchment[200]'),
+            '--tw-prose-invert-quote-borders': theme('colors.burgundy.light'),
+            '--tw-prose-invert-code': theme('colors.gold.light'),
+            '--tw-prose-invert-pre-bg': theme('colors.ink.light'),
+
             maxWidth: '68ch',
             fontSize: '1.0625rem',
             lineHeight: '1.85',
