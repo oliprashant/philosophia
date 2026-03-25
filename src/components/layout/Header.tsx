@@ -10,6 +10,7 @@
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
+import { useRouter } from 'next/navigation';
 import { useSession, signOut } from 'next-auth/react';
 import { useTheme } from 'next-themes';
 import { Menu, X, Search, Sun, Moon, ChevronDown, User, BookOpen, Settings, LogOut, PenLine } from 'lucide-react';
@@ -30,6 +31,7 @@ const NAV_GENRES = [
 ];
 
 export default function Header() {
+  const router = useRouter();
   const { data: session } = useSession();
   const { resolvedTheme, setTheme } = useTheme();
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -195,12 +197,24 @@ export default function Header() {
                       <p className="text-sm font-medium truncate">{session.user?.name}</p>
                       <p className="text-xs text-[var(--text-faint)] truncate">{session.user?.email}</p>
                     </div>
-                    <Link href="/profile" className="flex items-center gap-2 px-4 py-2 text-sm font-sans hover:bg-[var(--bg-secondary)] transition-colors" onClick={() => setUserMenuOpen(false)}>
+                    <button
+                      onClick={() => {
+                        setUserMenuOpen(false);
+                        router.push('/profile');
+                      }}
+                      className="w-full text-left flex items-center gap-2 px-4 py-2 text-sm font-sans hover:bg-[var(--bg-secondary)] transition-colors"
+                    >
                       <User size={14} /> Profile
-                    </Link>
-                    <Link href="/profile?tab=saved" className="flex items-center gap-2 px-4 py-2 text-sm font-sans hover:bg-[var(--bg-secondary)] transition-colors" onClick={() => setUserMenuOpen(false)}>
+                    </button>
+                    <button
+                      onClick={() => {
+                        setUserMenuOpen(false);
+                        router.push('/profile?tab=saved');
+                      }}
+                      className="w-full text-left flex items-center gap-2 px-4 py-2 text-sm font-sans hover:bg-[var(--bg-secondary)] transition-colors"
+                    >
                       <BookOpen size={14} /> Saved Posts
-                    </Link>
+                    </button>
                     {isAuthor && (
                       <Link href="/admin/editor" className="flex items-center gap-2 px-4 py-2 text-sm font-sans hover:bg-[var(--bg-secondary)] transition-colors" onClick={() => setUserMenuOpen(false)}>
                         <PenLine size={14} /> Write
@@ -260,6 +274,12 @@ export default function Header() {
             ))}
             <div className="h-px bg-[var(--border)] my-2" />
             <Link href="/about" className="block px-2 py-2 text-sm font-sans" onClick={() => setMobileOpen(false)}>About</Link>
+            {session && (
+              <>
+                <Link href="/profile" className="block px-2 py-2 text-sm font-sans" onClick={() => setMobileOpen(false)}>Profile</Link>
+                <Link href="/profile?tab=saved" className="block px-2 py-2 text-sm font-sans" onClick={() => setMobileOpen(false)}>Saved Posts</Link>
+              </>
+            )}
             {!session && (
               <Link href="/auth/signin" className="block px-2 py-2 text-sm font-sans font-medium text-[var(--accent)]" onClick={() => setMobileOpen(false)}>Sign In</Link>
             )}
