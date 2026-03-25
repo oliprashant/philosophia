@@ -1,7 +1,7 @@
 ﻿'use client';
 
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -43,6 +43,10 @@ type CommentItem = {
 
 type TabKey = 'saved' | 'upvoted' | 'comments' | 'history';
 
+function parseTab(value: string | null): TabKey {
+  return value === 'saved' || value === 'upvoted' || value === 'comments' || value === 'history' ? value : 'saved';
+}
+
 const TABS: Array<{ key: TabKey; label: string; icon: ReactNode }> = [
   { key: 'saved', label: 'Saved Posts', icon: <Bookmark size={14} /> },
   { key: 'upvoted', label: 'Upvoted Posts', icon: <ThumbsUp size={14} /> },
@@ -60,7 +64,6 @@ function getInitials(name?: string | null, email?: string | null) {
 
 export default function ProfilePage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const { data: session, status } = useSession();
 
   const [profile, setProfile] = useState<ProfileUser | null>(null);
@@ -74,13 +77,7 @@ export default function ProfilePage() {
   const [savingProfile, setSavingProfile] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
-  const tabParam = searchParams.get('tab');
-  const initialTab: TabKey =
-    tabParam === 'saved' || tabParam === 'upvoted' || tabParam === 'comments' || tabParam === 'history'
-      ? tabParam
-      : 'saved';
-
-  const [activeTab, setActiveTab] = useState<TabKey>(initialTab);
+  const [activeTab, setActiveTab] = useState<TabKey>('saved');
   const [tabsLoading, setTabsLoading] = useState(true);
   const [savedPosts, setSavedPosts] = useState<PostSummary[]>([]);
   const [upvotedPosts, setUpvotedPosts] = useState<PostSummary[]>([]);
@@ -88,8 +85,10 @@ export default function ProfilePage() {
   const [comments, setComments] = useState<CommentItem[]>([]);
 
   useEffect(() => {
-    setActiveTab(initialTab);
-  }, [initialTab]);
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    setActiveTab(parseTab(params.get('tab')));
+  }, []);
 
   useEffect(() => {
     if (status === 'unauthenticated') {
