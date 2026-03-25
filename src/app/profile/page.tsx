@@ -25,17 +25,38 @@ import toast from 'react-hot-toast';
 import PostGrid from '@/components/blog/PostGrid';
 import type { PostSummary, Role } from '@/types';
 
+  import {
+    User,
+    Mail,
+    Shield,
+    Calendar,
+    Pencil,
+    Save,
+    X,
+    Upload,
+    Bookmark,
+    ThumbsUp,
+    MessageSquare,
+    History,
+    Loader2,
+    AlertCircle,
+  } from 'lucide-react';@@  const [savingProfile, setSavingProfile] = useState(false);
 type ProfileUser = {
   id: string;
   name: string | null;
+   const [profileError, setProfileError] = useState<string | null>(null);
+
+    const initialTabParam = searchParams.get('tab');@@        if (!mounted) return;
   email: string | null;
   image: string | null;
   bio: string | null;
   role: Role;
   createdAt: string;
 };
+          setProfileError(err.message || 'Failed to load profile');
 
 type CommentItem = {
+            if (!res.ok) throw new Error('Failed to fetch saved posts');
   id: string;
   content: string;
   createdAt: string;
@@ -43,6 +64,7 @@ type CommentItem = {
 };
 
 type TabKey = 'saved' | 'upvoted' | 'comments' | 'history';
+            if (!res.ok) throw new Error('Failed to fetch upvoted posts');
 
 const TABS: Array<{ key: TabKey; label: string; icon: React.ReactNode }> = [
   { key: 'saved', label: 'Saved Posts', icon: <Bookmark size={14} /> },
@@ -50,6 +72,7 @@ const TABS: Array<{ key: TabKey; label: string; icon: React.ReactNode }> = [
   { key: 'comments', label: 'My Comments', icon: <MessageSquare size={14} /> },
   { key: 'history', label: 'Reading History', icon: <History size={14} /> },
 ];
+            if (!res.ok) throw new Error('Failed to fetch history');
 
 function initialsFrom(name?: string | null, email?: string | null) {
   const base = (name || email || 'Reader').trim();
@@ -57,6 +80,7 @@ function initialsFrom(name?: string | null, email?: string | null) {
   if (!parts.length) return 'R';
   if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
   return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
+            if (!res.ok) throw new Error('Failed to fetch comments');
 }
 
 export default function ProfilePage() {
@@ -71,7 +95,37 @@ export default function ProfilePage() {
   const [editName, setEditName] = useState('');
   const [editBio, setEditBio] = useState('');
   const [editImage, setEditImage] = useState<string | null>(null);
-  const [savingProfile, setSavingProfile] = useState(false);
+
+    if (status === 'unauthenticated') {
+      return (
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-16 flex items-center justify-center">
+          <div className="text-center">
+            <p className="text-[var(--text-faint)] font-sans">Please sign in to view your profile.</p>
+          </div>
+        </div>
+      );
+    }
+
+    if (profileError) {
+      return (
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-16 flex items-center justify-center">
+          <div className="flex gap-3 text-red-600 font-sans">
+            <AlertCircle size={18} />
+            <p>{profileError}</p>
+          </div>
+        </div>
+      );
+    }
+
+    if (!session?.user || !profile) {
+      return (
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-16 flex items-center justify-center">
+          <div className="text-center">
+            <p className="text-[var(--text-faint)] font-sans">Unable to load profile.</p>
+          </div>
+        </div>
+      );
+    }@@
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
   const initialTabParam = searchParams.get('tab');
