@@ -87,13 +87,36 @@ export default function Footer() {
         </div>
 
         {/* Bottom bar */}
-        <div className="border-t border-[var(--border)] py-6 flex flex-col sm:flex-row items-center justify-between gap-3">
+        <div className="border-t border-[var(--border)] py-6 flex flex-col items-center gap-3">
+          <nav aria-label="Footer bottom links" className="flex items-center gap-4 sm:gap-6">
+            <Link
+              href="/about"
+              className="text-xs font-sans text-[var(--text-faint)] hover:text-[var(--accent)] transition-colors"
+            >
+              About
+            </Link>
+            <Link
+              href="/terms"
+              className="text-xs font-sans text-[var(--text-faint)] hover:text-[var(--accent)] transition-colors"
+            >
+              Terms
+            </Link>
+            <Link
+              href="/privacy"
+              className="text-xs font-sans text-[var(--text-faint)] hover:text-[var(--accent)] transition-colors"
+            >
+              Privacy Policy
+            </Link>
+          </nav>
+
+          <div className="w-full flex flex-col sm:flex-row items-center justify-between gap-3">
           <p className="text-xs font-sans text-[var(--text-faint)]">
             © {year} Philosophia. All rights reserved.
           </p>
           <p className="text-xs font-sans text-[var(--text-faint)] italic" style={{ fontFamily: 'var(--font-cormorant)' }}>
             "The unexamined life is not worth living." — Socrates
           </p>
+          </div>
         </div>
       </div>
     </footer>
