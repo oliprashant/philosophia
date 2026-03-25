@@ -1,13 +1,12 @@
-'use client';
+﻿'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { format } from 'date-fns';
 import {
-  User,
   Mail,
   Shield,
   Calendar,
@@ -19,68 +18,44 @@ import {
   ThumbsUp,
   MessageSquare,
   History,
-  Loader2,
+  Loader,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import PostGrid from '@/components/blog/PostGrid';
 import type { PostSummary, Role } from '@/types';
 
-  import {
-    User,
-    Mail,
-    Shield,
-    Calendar,
-    Pencil,
-    Save,
-    X,
-    Upload,
-    Bookmark,
-    ThumbsUp,
-    MessageSquare,
-    History,
-    Loader2,
-    AlertCircle,
-  } from 'lucide-react';@@  const [savingProfile, setSavingProfile] = useState(false);
 type ProfileUser = {
   id: string;
   name: string | null;
-   const [profileError, setProfileError] = useState<string | null>(null);
-
-    const initialTabParam = searchParams.get('tab');@@        if (!mounted) return;
   email: string | null;
   image: string | null;
   bio: string | null;
   role: Role;
   createdAt: string;
 };
-          setProfileError(err.message || 'Failed to load profile');
 
 type CommentItem = {
-            if (!res.ok) throw new Error('Failed to fetch saved posts');
   id: string;
-  content: string;
+  text: string;
   createdAt: string;
-  post: { id: string; title: string; slug: string };
+  post: { title: string; slug: string };
 };
 
 type TabKey = 'saved' | 'upvoted' | 'comments' | 'history';
-            if (!res.ok) throw new Error('Failed to fetch upvoted posts');
 
-const TABS: Array<{ key: TabKey; label: string; icon: React.ReactNode }> = [
+const TABS: Array<{ key: TabKey; label: string; icon: ReactNode }> = [
   { key: 'saved', label: 'Saved Posts', icon: <Bookmark size={14} /> },
   { key: 'upvoted', label: 'Upvoted Posts', icon: <ThumbsUp size={14} /> },
-  { key: 'comments', label: 'My Comments', icon: <MessageSquare size={14} /> },
+  { key: 'comments', label: 'Comments', icon: <MessageSquare size={14} /> },
   { key: 'history', label: 'Reading History', icon: <History size={14} /> },
 ];
-            if (!res.ok) throw new Error('Failed to fetch history');
 
-function initialsFrom(name?: string | null, email?: string | null) {
-  const base = (name || email || 'Reader').trim();
-  const parts = base.split(/\s+/).filter(Boolean);
-  if (!parts.length) return 'R';
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-  return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
-            if (!res.ok) throw new Error('Failed to fetch comments');
+function getInitials(name?: string | null, email?: string | null) {
+  const fallback = (name || email || 'Reader').trim();
+  const words = fallback.split(/\s+/).filter(Boolean);
+  if (words.length === 0) return 'RE';
+  if (words.length === 1) return words[0].slice(0, 2).toUpperCase();
+  return `${words[0][0]}${words[1][0]}`.toUpperCase();
 }
 
 export default function ProfilePage() {
@@ -89,60 +64,28 @@ export default function ProfilePage() {
   const { data: session, status } = useSession();
 
   const [profile, setProfile] = useState<ProfileUser | null>(null);
-  const [loadingProfile, setLoadingProfile] = useState(true);
+  const [profileLoading, setProfileLoading] = useState(true);
+  const [profileError, setProfileError] = useState<string | null>(null);
 
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState('');
   const [editBio, setEditBio] = useState('');
   const [editImage, setEditImage] = useState<string | null>(null);
-
-    if (status === 'unauthenticated') {
-      return (
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-16 flex items-center justify-center">
-          <div className="text-center">
-            <p className="text-[var(--text-faint)] font-sans">Please sign in to view your profile.</p>
-          </div>
-        </div>
-      );
-    }
-
-    if (profileError) {
-      return (
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-16 flex items-center justify-center">
-          <div className="flex gap-3 text-red-600 font-sans">
-            <AlertCircle size={18} />
-            <p>{profileError}</p>
-          </div>
-        </div>
-      );
-    }
-
-    if (!session?.user || !profile) {
-      return (
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-16 flex items-center justify-center">
-          <div className="text-center">
-            <p className="text-[var(--text-faint)] font-sans">Unable to load profile.</p>
-          </div>
-        </div>
-      );
-    }@@
+  const [savingProfile, setSavingProfile] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
-  const initialTabParam = searchParams.get('tab');
+  const tabParam = searchParams.get('tab');
   const initialTab: TabKey =
-    initialTabParam === 'saved' ||
-    initialTabParam === 'upvoted' ||
-    initialTabParam === 'comments' ||
-    initialTabParam === 'history'
-      ? initialTabParam
+    tabParam === 'saved' || tabParam === 'upvoted' || tabParam === 'comments' || tabParam === 'history'
+      ? tabParam
       : 'saved';
 
   const [activeTab, setActiveTab] = useState<TabKey>(initialTab);
+  const [tabsLoading, setTabsLoading] = useState(true);
   const [savedPosts, setSavedPosts] = useState<PostSummary[]>([]);
   const [upvotedPosts, setUpvotedPosts] = useState<PostSummary[]>([]);
   const [historyPosts, setHistoryPosts] = useState<PostSummary[]>([]);
-  const [myComments, setMyComments] = useState<CommentItem[]>([]);
-  const [loadingTab, setLoadingTab] = useState(false);
+  const [comments, setComments] = useState<CommentItem[]>([]);
 
   useEffect(() => {
     setActiveTab(initialTab);
@@ -159,20 +102,23 @@ export default function ProfilePage() {
 
     let mounted = true;
     const loadProfile = async () => {
-      setLoadingProfile(true);
       try {
+        setProfileLoading(true);
+        setProfileError(null);
         const res = await fetch('/api/profile');
-        if (!res.ok) throw new Error('Could not load profile');
+        if (!res.ok) throw new Error('Failed to load profile');
         const data = await res.json();
         if (!mounted) return;
         setProfile(data.user);
         setEditName(data.user.name ?? '');
         setEditBio(data.user.bio ?? '');
         setEditImage(data.user.image ?? null);
-      } catch (err: any) {
-        toast.error(err.message || 'Failed to load profile');
+      } catch (error) {
+        console.error('Profile fetch error:', error);
+        if (!mounted) return;
+        setProfileError('Failed to load profile');
       } finally {
-        if (mounted) setLoadingProfile(false);
+        if (mounted) setProfileLoading(false);
       }
     };
 
@@ -186,74 +132,89 @@ export default function ProfilePage() {
     if (status !== 'authenticated') return;
 
     let mounted = true;
-    const loadTab = async () => {
-      setLoadingTab(true);
+    const loadAllTabs = async () => {
       try {
-        if (activeTab === 'saved') {
-          const res = await fetch('/api/posts?saved=true');
-          const data = await res.json();
-          if (!mounted) return;
-          setSavedPosts(data.items ?? []);
+        setTabsLoading(true);
+        const [savedRes, upvotedRes, historyRes, commentsRes] = await Promise.all([
+          fetch('/api/posts?saved=true'),
+          fetch('/api/posts?upvoted=true'),
+          fetch('/api/posts?history=true'),
+          fetch('/api/comments?userId=me'),
+        ]);
+
+        if (!savedRes.ok || !upvotedRes.ok || !historyRes.ok || !commentsRes.ok) {
+          throw new Error('Failed to fetch one or more tabs');
         }
 
-        if (activeTab === 'upvoted') {
-          const res = await fetch('/api/posts?upvoted=true');
-          const data = await res.json();
-          if (!mounted) return;
-          setUpvotedPosts(data.items ?? []);
-        }
+        const [savedData, upvotedData, historyData, commentsData] = await Promise.all([
+          savedRes.json(),
+          upvotedRes.json(),
+          historyRes.json(),
+          commentsRes.json(),
+        ]);
 
-        if (activeTab === 'history') {
-          const res = await fetch('/api/posts?history=true');
-          const data = await res.json();
-          if (!mounted) return;
-          setHistoryPosts(data.items ?? []);
-        }
+        if (!mounted) return;
 
-        if (activeTab === 'comments') {
-          const res = await fetch('/api/comments?userId=me');
-          const data = await res.json();
-          if (!mounted) return;
-          setMyComments(data.comments ?? []);
-        }
-      } catch {
-        toast.error('Failed to load tab content');
+        setSavedPosts(savedData.items ?? []);
+        setUpvotedPosts(upvotedData.items ?? []);
+        setHistoryPosts(historyData.items ?? []);
+        setComments(
+          (commentsData.comments ?? []).map((c: any) => ({
+            id: c.id,
+            text: c.text ?? c.content ?? '',
+            createdAt: c.createdAt,
+            post: { title: c.post?.title ?? 'Untitled', slug: c.post?.slug ?? '' },
+          }))
+        );
+      } catch (error) {
+        console.error('Tab fetch error:', error);
+        if (!mounted) return;
+        toast.error('Failed to load profile tab data');
       } finally {
-        if (mounted) setLoadingTab(false);
+        if (mounted) setTabsLoading(false);
       }
     };
 
-    void loadTab();
+    void loadAllTabs();
     return () => {
       mounted = false;
     };
-  }, [activeTab, status]);
+  }, [status]);
 
-  const uploadAvatar = async (file?: File | null) => {
+  const handleAvatarUpload = async (file?: File | null) => {
     if (!file) return;
-    setUploadingAvatar(true);
+
     try {
-      const fd = new FormData();
-      fd.append('file', file);
-      fd.append('type', 'avatar');
-      const res = await fetch('/api/upload', { method: 'POST', body: fd });
+      setUploadingAvatar(true);
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('type', 'avatar');
+
+      const res = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData,
+      });
+
       if (!res.ok) {
-        const d = await res.json().catch(() => ({}));
-        throw new Error(d.error || 'Avatar upload failed');
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || 'Avatar upload failed');
       }
+
       const data = await res.json();
       setEditImage(data.url);
       toast.success('Avatar uploaded');
-    } catch (err: any) {
-      toast.error(err.message || 'Avatar upload failed');
+    } catch (error: any) {
+      console.error('Avatar upload error:', error);
+      toast.error(error?.message || 'Avatar upload failed');
     } finally {
       setUploadingAvatar(false);
     }
   };
 
   const saveProfile = async () => {
-    setSavingProfile(true);
     try {
+      setSavingProfile(true);
+
       const res = await fetch('/api/profile', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -265,16 +226,17 @@ export default function ProfilePage() {
       });
 
       if (!res.ok) {
-        const d = await res.json().catch(() => ({}));
-        throw new Error(d.error || 'Failed to update profile');
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || 'Failed to update profile');
       }
 
       const data = await res.json();
       setProfile(data.user);
       setIsEditing(false);
       toast.success('Profile updated');
-    } catch (err: any) {
-      toast.error(err.message || 'Failed to update profile');
+    } catch (error: any) {
+      console.error('Save profile error:', error);
+      toast.error(error?.message || 'Failed to update profile');
     } finally {
       setSavingProfile(false);
     }
@@ -293,13 +255,21 @@ export default function ProfilePage() {
     return `Member since ${format(new Date(profile.createdAt), 'MMMM yyyy')}`;
   }, [profile?.createdAt]);
 
-  if (status === 'loading' || loadingProfile) {
+  if (status === 'loading' || profileLoading) {
     return (
       <div className="max-w-6xl mx-auto px-4 sm:px-6 py-16 flex items-center justify-center">
         <div className="flex items-center gap-3 text-[var(--text-faint)] font-sans">
-          <Loader2 size={18} className="animate-spin" />
+          <Loader size={18} className="animate-spin" />
           Loading profile...
         </div>
+      </div>
+    );
+  }
+
+  if (profileError) {
+    return (
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 py-16 flex items-center justify-center">
+        <p className="text-sm font-sans text-red-600">Failed to load profile</p>
       </div>
     );
   }
@@ -312,10 +282,9 @@ export default function ProfilePage() {
         My Profile
       </h1>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-        {/* Sidebar */}
-        <aside className="lg:col-span-4">
-          <div className="border border-[var(--border)] bg-[var(--bg-secondary)] p-6 space-y-5 sticky top-24">
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+        <aside className="lg:col-span-1">
+          <div className="border border-[var(--border)] bg-[var(--bg-secondary)] p-6 space-y-5 lg:sticky top-24 shadow-sm">
             <div className="flex items-center gap-4">
               {((isEditing ? editImage : profile.image) || '').trim() ? (
                 <Image
@@ -326,8 +295,8 @@ export default function ProfilePage() {
                   className="rounded-full border border-[var(--border)] object-cover"
                 />
               ) : (
-                <div className="w-[72px] h-[72px] rounded-full bg-[var(--accent)] text-white flex items-center justify-center text-xl font-sans">
-                  {initialsFrom(profile.name, profile.email)}
+                <div className="w-[72px] h-[72px] rounded-full bg-gradient-to-br from-[var(--accent)] to-sky-600 text-white flex items-center justify-center text-xl font-sans">
+                  {getInitials(profile.name, profile.email)}
                 </div>
               )}
 
@@ -391,13 +360,13 @@ export default function ProfilePage() {
                 </div>
 
                 <label className="w-full inline-flex items-center justify-center gap-2 px-3 py-2 text-sm font-sans border border-[var(--border)] hover:border-[var(--accent)] cursor-pointer transition-colors">
-                  {uploadingAvatar ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
+                  {uploadingAvatar ? <Loader size={14} className="animate-spin" /> : <Upload size={14} />}
                   {uploadingAvatar ? 'Uploading...' : 'Upload Profile Picture'}
                   <input
                     type="file"
                     accept="image/*"
                     className="hidden"
-                    onChange={e => void uploadAvatar(e.target.files?.[0])}
+                    onChange={e => void handleAvatarUpload(e.target.files?.[0])}
                     disabled={uploadingAvatar}
                   />
                 </label>
@@ -408,7 +377,7 @@ export default function ProfilePage() {
                     disabled={savingProfile}
                     className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-sans bg-[var(--text-primary)] text-[var(--bg-primary)] hover:bg-[var(--accent)] disabled:opacity-60 transition-colors"
                   >
-                    {savingProfile ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+                    {savingProfile ? <Loader size={14} className="animate-spin" /> : <Save size={14} />}
                     Save
                   </button>
                   <button
@@ -424,9 +393,8 @@ export default function ProfilePage() {
           </div>
         </aside>
 
-        {/* Main content */}
-        <section className="lg:col-span-8">
-          <div className="border border-[var(--border)] bg-[var(--bg-primary)]">
+        <section className="lg:col-span-3">
+          <div className="border border-[var(--border)] bg-[var(--bg-primary)] shadow-sm">
             <div className="border-b border-[var(--border)] p-2 flex flex-wrap gap-2">
               {TABS.map(tab => (
                 <button
@@ -445,47 +413,40 @@ export default function ProfilePage() {
             </div>
 
             <div className="p-5 sm:p-6">
-              {loadingTab ? (
+              {tabsLoading ? (
                 <div className="py-12 flex items-center justify-center gap-3 text-[var(--text-faint)] font-sans">
-                  <Loader2 size={18} className="animate-spin" />
+                  <Loader size={18} className="animate-spin" />
                   Loading...
                 </div>
               ) : (
                 <>
-                  {activeTab === 'saved' && (
-                    savedPosts.length ? (
+                  {activeTab === 'saved' &&
+                    (savedPosts.length ? (
                       <PostGrid posts={savedPosts} />
                     ) : (
-                      <p className="text-sm font-sans text-[var(--text-faint)] py-10 text-center">
-                        You have no saved posts yet.
-                      </p>
-                    )
-                  )}
+                      <p className="text-sm font-sans text-[var(--text-faint)] py-10 text-center">You have no saved posts yet.</p>
+                    ))}
 
-                  {activeTab === 'upvoted' && (
-                    upvotedPosts.length ? (
+                  {activeTab === 'upvoted' &&
+                    (upvotedPosts.length ? (
                       <PostGrid posts={upvotedPosts} />
                     ) : (
                       <p className="text-sm font-sans text-[var(--text-faint)] py-10 text-center">
                         You have not upvoted any posts yet.
                       </p>
-                    )
-                  )}
+                    ))}
 
-                  {activeTab === 'history' && (
-                    historyPosts.length ? (
+                  {activeTab === 'history' &&
+                    (historyPosts.length ? (
                       <PostGrid posts={historyPosts} />
                     ) : (
-                      <p className="text-sm font-sans text-[var(--text-faint)] py-10 text-center">
-                        Your reading history is empty.
-                      </p>
-                    )
-                  )}
+                      <p className="text-sm font-sans text-[var(--text-faint)] py-10 text-center">Your reading history is empty.</p>
+                    ))}
 
-                  {activeTab === 'comments' && (
-                    myComments.length ? (
+                  {activeTab === 'comments' &&
+                    (comments.length ? (
                       <div className="space-y-3">
-                        {myComments.map(comment => (
+                        {comments.map(comment => (
                           <article key={comment.id} className="border border-[var(--border)] p-4 bg-[var(--bg-secondary)]">
                             <Link
                               href={`/blog/${comment.post.slug}`}
@@ -494,7 +455,7 @@ export default function ProfilePage() {
                             >
                               {comment.post.title}
                             </Link>
-                            <p className="text-sm font-sans text-[var(--text-primary)] mt-2 leading-relaxed">{comment.content}</p>
+                            <p className="text-sm font-sans text-[var(--text-primary)] mt-2 leading-relaxed">{comment.text}</p>
                             <p className="text-xs text-[var(--text-faint)] font-sans mt-2">
                               {format(new Date(comment.createdAt), 'MMM d, yyyy')}
                             </p>
@@ -505,8 +466,7 @@ export default function ProfilePage() {
                       <p className="text-sm font-sans text-[var(--text-faint)] py-10 text-center">
                         You have not posted any comments yet.
                       </p>
-                    )
-                  )}
+                    ))}
                 </>
               )}
             </div>
