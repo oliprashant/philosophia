@@ -198,7 +198,7 @@ export default function Header() {
                     <Link href="/profile" className="flex items-center gap-2 px-4 py-2 text-sm font-sans hover:bg-[var(--bg-secondary)] transition-colors" onClick={() => setUserMenuOpen(false)}>
                       <User size={14} /> Profile
                     </Link>
-                    <Link href="/profile/saved" className="flex items-center gap-2 px-4 py-2 text-sm font-sans hover:bg-[var(--bg-secondary)] transition-colors" onClick={() => setUserMenuOpen(false)}>
+                    <Link href="/profile?tab=saved" className="flex items-center gap-2 px-4 py-2 text-sm font-sans hover:bg-[var(--bg-secondary)] transition-colors" onClick={() => setUserMenuOpen(false)}>
                       <BookOpen size={14} /> Saved Posts
                     </Link>
                     {isAuthor && (

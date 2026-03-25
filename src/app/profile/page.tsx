@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -61,6 +61,7 @@ function initialsFrom(name?: string | null, email?: string | null) {
 
 export default function ProfilePage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { data: session, status } = useSession();
 
   const [profile, setProfile] = useState<ProfileUser | null>(null);
@@ -73,12 +74,25 @@ export default function ProfilePage() {
   const [savingProfile, setSavingProfile] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
-  const [activeTab, setActiveTab] = useState<TabKey>('saved');
+  const initialTabParam = searchParams.get('tab');
+  const initialTab: TabKey =
+    initialTabParam === 'saved' ||
+    initialTabParam === 'upvoted' ||
+    initialTabParam === 'comments' ||
+    initialTabParam === 'history'
+      ? initialTabParam
+      : 'saved';
+
+  const [activeTab, setActiveTab] = useState<TabKey>(initialTab);
   const [savedPosts, setSavedPosts] = useState<PostSummary[]>([]);
   const [upvotedPosts, setUpvotedPosts] = useState<PostSummary[]>([]);
   const [historyPosts, setHistoryPosts] = useState<PostSummary[]>([]);
   const [myComments, setMyComments] = useState<CommentItem[]>([]);
   const [loadingTab, setLoadingTab] = useState(false);
+
+  useEffect(() => {
+    setActiveTab(initialTab);
+  }, [initialTab]);
 
   useEffect(() => {
     if (status === 'unauthenticated') {
