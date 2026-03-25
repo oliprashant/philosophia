@@ -2,7 +2,7 @@
 
 export const dynamic = 'force-dynamic';
 
-import { Suspense, useState, useEffect, useCallback } from 'react';
+import { Suspense, useState, useEffect, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
@@ -11,14 +11,72 @@ import Image from '@tiptap/extension-image';
 import Link from '@tiptap/extension-link';
 import Highlight from '@tiptap/extension-highlight';
 import Underline from '@tiptap/extension-underline';
+import { Node, mergeAttributes } from '@tiptap/core';
+import { NodeSelection } from '@tiptap/pm/state';
 import {
   Bold, Italic, UnderlineIcon, Strikethrough, Code,
   Heading2, Heading3, List, ListOrdered, Quote,
-  Image as ImageIcon, Save, Eye, Loader2, Upload
+  Image as ImageIcon, Save, Eye, Loader2, Upload,
+  AlignLeft, AlignCenter, AlignRight, X
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 const GENRES = ['ESSAY', 'DIALOGUE', 'POEM', 'APHORISM', 'LETTER', 'REVIEW', 'INTERVIEW'];
+
+const DEFAULT_IMAGE_STYLE = 'width: 100%; max-width: 100%; height: auto;';
+
+const ALIGNMENT_CLASSES = {
+  left: 'float-left mr-4 rounded',
+  center: 'mx-auto block rounded',
+  right: 'float-right ml-4 rounded',
+} as const;
+
+const ClearBoth = Node.create({
+  name: 'clearBoth',
+  group: 'block',
+  atom: true,
+  selectable: false,
+  draggable: false,
+
+  parseHTML() {
+    return [{ tag: 'div[data-clear="both"]' }];
+  },
+
+  renderHTML() {
+    return ['div', { 'data-clear': 'both', class: 'tiptap-clear', style: 'clear: both;' }];
+  },
+});
+
+const TiptapImage = Image.extend({
+  addAttributes() {
+    return {
+      ...this.parent?.(),
+      class: {
+        default: ALIGNMENT_CLASSES.center,
+      },
+      style: {
+        default: DEFAULT_IMAGE_STYLE,
+      },
+    };
+  },
+
+  renderHTML({ HTMLAttributes }) {
+    return ['img', mergeAttributes(this.options.HTMLAttributes, HTMLAttributes)];
+  },
+});
+
+function extractImageWidth(style?: string | null): number {
+  if (!style) return 100;
+  const match = style.match(/width:\s*(\d+)%/i);
+  if (!match) return 100;
+  const width = Number(match[1]);
+  if ([25, 50, 75, 100].includes(width)) return width;
+  return 100;
+}
+
+function buildImageStyle(widthPercent: number): string {
+  return `width: ${widthPercent}%; max-width: 100%; height: auto;`;
+}
 
 // Toolbar button component
 function TBtn({ onClick, active, disabled, children, title }: {
@@ -62,13 +120,18 @@ function EditorWithSearchParams() {
   const [humours, setHumours] = useState<any[]>([]);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [selectedImagePos, setSelectedImagePos] = useState<number | null>(null);
+  const [imageWidth, setImageWidth] = useState<number>(100);
+  const [imageOverlay, setImageOverlay] = useState<{ top: number; left: number } | null>(null);
+  const editorWrapRef = useRef<HTMLDivElement>(null);
 
   // TipTap editor
   const editor = useEditor({
     extensions: [
       StarterKit,
       Placeholder.configure({ placeholder: 'Begin writing your essay…' }),
-      Image.configure({ HTMLAttributes: { class: 'mx-auto rounded max-w-full' } }),
+      TiptapImage.configure({ HTMLAttributes: { class: ALIGNMENT_CLASSES.center, style: DEFAULT_IMAGE_STYLE } }),
+      ClearBoth,
       Link.configure({ openOnClick: false }),
       Highlight,
       Underline,
@@ -137,9 +200,82 @@ function EditorWithSearchParams() {
     const res = await fetch('/api/upload', { method: 'POST', body: fd });
     if (res.ok) {
       const data = await res.json();
-      editor.chain().focus().setImage({ src: data.url, alt: '' }).run();
+      editor.chain().focus().setImage({
+        src: data.url,
+        alt: '',
+        class: ALIGNMENT_CLASSES.center,
+        style: DEFAULT_IMAGE_STYLE,
+      }).run();
+    }
+    e.target.value = '';
+  };
+
+  const ensureClearAfterImage = (imagePos: number) => {
+    if (!editor) return;
+    const imageNode = editor.state.doc.nodeAt(imagePos);
+    if (!imageNode) return;
+    const insertPos = imagePos + imageNode.nodeSize;
+    const nextNode = editor.state.doc.nodeAt(insertPos);
+    if (nextNode?.type.name === 'clearBoth') return;
+    editor.chain().insertContentAt(insertPos, { type: 'clearBoth' }).run();
+  };
+
+  const applyImageAlignment = (align: keyof typeof ALIGNMENT_CLASSES) => {
+    if (!editor || selectedImagePos === null) return;
+    editor.chain().focus().setNodeSelection(selectedImagePos).updateAttributes('image', {
+      class: ALIGNMENT_CLASSES[align],
+    }).run();
+    if (align === 'left' || align === 'right') {
+      ensureClearAfterImage(selectedImagePos);
     }
   };
+
+  const applyImageWidth = (nextWidth: number) => {
+    if (!editor || selectedImagePos === null) return;
+    setImageWidth(nextWidth);
+    editor.chain().focus().setNodeSelection(selectedImagePos).updateAttributes('image', {
+      style: buildImageStyle(nextWidth),
+    }).run();
+  };
+
+  const deleteSelectedImage = () => {
+    if (!editor || selectedImagePos === null) return;
+    editor.chain().focus().setNodeSelection(selectedImagePos).deleteSelection().run();
+  };
+
+  useEffect(() => {
+    if (!editor) return;
+
+    const updateImageSelectionState = () => {
+      const { selection } = editor.state;
+      if (selection instanceof NodeSelection && selection.node.type.name === 'image') {
+        const attrs = selection.node.attrs as { style?: string };
+        const container = editorWrapRef.current;
+        if (!container) return;
+        const coords = editor.view.coordsAtPos(selection.from);
+        const bounds = container.getBoundingClientRect();
+        setSelectedImagePos(selection.from);
+        setImageWidth(extractImageWidth(attrs.style));
+        setImageOverlay({
+          top: coords.top - bounds.top + container.scrollTop + 6,
+          left: coords.right - bounds.left + container.scrollLeft - 150,
+        });
+        return;
+      }
+
+      setSelectedImagePos(null);
+      setImageOverlay(null);
+    };
+
+    updateImageSelectionState();
+    editor.on('selectionUpdate', updateImageSelectionState);
+    editor.on('transaction', updateImageSelectionState);
+
+    return () => {
+      editor.off('selectionUpdate', updateImageSelectionState);
+      editor.off('transaction', updateImageSelectionState);
+    };
+  }, [editor]);
 
   // Save post (draft or publish)
   const save = async (publishNow?: boolean) => {
@@ -241,7 +377,10 @@ function EditorWithSearchParams() {
           />
 
           {/* TipTap editor */}
-          <div className="border border-[var(--border)] focus-within:border-[var(--accent)] transition-colors">
+          <div
+            ref={editorWrapRef}
+            className="border border-[var(--border)] focus-within:border-[var(--accent)] transition-colors relative"
+          >
             <div className="flex flex-wrap items-center gap-0.5 p-2 border-b border-[var(--border)] bg-[var(--bg-secondary)]">
               <TBtn onClick={() => editor?.chain().focus().toggleBold().run()} active={editor?.isActive('bold')} title="Bold"><Bold size={14} /></TBtn>
               <TBtn onClick={() => editor?.chain().focus().toggleItalic().run()} active={editor?.isActive('italic')} title="Italic"><Italic size={14} /></TBtn>
@@ -256,12 +395,65 @@ function EditorWithSearchParams() {
               <TBtn onClick={() => editor?.chain().focus().toggleBlockquote().run()} active={editor?.isActive('blockquote')} title="Blockquote"><Quote size={14} /></TBtn>
               <TBtn onClick={() => editor?.chain().focus().toggleCode().run()} active={editor?.isActive('code')} title="Code"><Code size={14} /></TBtn>
               <div className="w-px h-5 bg-[var(--border)] mx-1" />
+              <TBtn
+                onClick={() => applyImageAlignment('left')}
+                active={!!editor?.isActive('image', { class: ALIGNMENT_CLASSES.left })}
+                disabled={selectedImagePos === null}
+                title="Align image left"
+              >
+                <AlignLeft size={14} />
+              </TBtn>
+              <TBtn
+                onClick={() => applyImageAlignment('center')}
+                active={!!editor?.isActive('image', { class: ALIGNMENT_CLASSES.center })}
+                disabled={selectedImagePos === null}
+                title="Align image center"
+              >
+                <AlignCenter size={14} />
+              </TBtn>
+              <TBtn
+                onClick={() => applyImageAlignment('right')}
+                active={!!editor?.isActive('image', { class: ALIGNMENT_CLASSES.right })}
+                disabled={selectedImagePos === null}
+                title="Align image right"
+              >
+                <AlignRight size={14} />
+              </TBtn>
+              <div className="w-px h-5 bg-[var(--border)] mx-1" />
               <label className="p-1.5 rounded text-[var(--text-muted)] hover:bg-[var(--bg-tertiary)] cursor-pointer" title="Insert image">
                 <ImageIcon size={14} />
                 <input type="file" accept="image/*" className="hidden" onChange={insertImage} />
               </label>
             </div>
             <EditorContent editor={editor} />
+
+            {imageOverlay && selectedImagePos !== null && (
+              <div
+                className="absolute z-20 flex items-center gap-2 px-2 py-1.5 bg-[var(--bg-primary)] border border-[var(--border)] shadow-sm"
+                style={{ top: imageOverlay.top, left: imageOverlay.left }}
+              >
+                <label className="text-[10px] font-sans uppercase tracking-wider text-[var(--text-faint)]">Width</label>
+                <select
+                  value={imageWidth}
+                  onChange={e => applyImageWidth(Number(e.target.value))}
+                  className="text-xs font-sans bg-[var(--bg-secondary)] border border-[var(--border)] px-1.5 py-1"
+                >
+                  <option value={25}>25%</option>
+                  <option value={50}>50%</option>
+                  <option value={75}>75%</option>
+                  <option value={100}>100%</option>
+                </select>
+                <button
+                  type="button"
+                  onClick={deleteSelectedImage}
+                  className="w-6 h-6 flex items-center justify-center bg-red-600 text-white hover:bg-red-700 transition-colors"
+                  title="Delete image"
+                  aria-label="Delete image"
+                >
+                  <X size={12} />
+                </button>
+              </div>
+            )}
           </div>
         </div>
 
