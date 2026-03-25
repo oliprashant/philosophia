@@ -90,22 +90,22 @@ export default function Footer() {
         <div className="border-t border-[var(--border)] py-6 flex flex-col items-center gap-3">
           <nav aria-label="Footer bottom links" className="flex items-center gap-4 sm:gap-6">
             <Link
-              href="/about"
-              className="text-xs font-sans text-[var(--text-faint)] hover:text-[var(--accent)] transition-colors"
-            >
-              About
-            </Link>
-            <Link
               href="/terms"
               className="text-xs font-sans text-[var(--text-faint)] hover:text-[var(--accent)] transition-colors"
             >
-              Terms
+              Terms of Use
             </Link>
             <Link
               href="/privacy"
               className="text-xs font-sans text-[var(--text-faint)] hover:text-[var(--accent)] transition-colors"
             >
               Privacy Policy
+            </Link>
+            <Link
+              href="/cookies"
+              className="text-xs font-sans text-[var(--text-faint)] hover:text-[var(--accent)] transition-colors"
+            >
+              Cookie Policy
             </Link>
           </nav>
 
