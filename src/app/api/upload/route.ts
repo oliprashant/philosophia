@@ -10,16 +10,16 @@ export async function POST(req: NextRequest) {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
+  const formData = await req.formData();
+  const file = formData.get('file') as File | null;
+  const type = (formData.get('type') as string) ?? 'inline'; // 'cover' | 'avatar' | 'inline'
+
   const role = (session.user as any).role as string;
-  if (!['ADMIN', 'AUTHOR'].includes(role)) {
+  if (type !== 'avatar' && !['ADMIN', 'AUTHOR'].includes(role)) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
   try {
-    const formData = await req.formData();
-    const file = formData.get('file') as File | null;
-    const type = (formData.get('type') as string) ?? 'inline'; // 'cover' | 'avatar' | 'inline'
-
     if (!file) return NextResponse.json({ error: 'No file provided' }, { status: 400 });
 
     // Validate file type

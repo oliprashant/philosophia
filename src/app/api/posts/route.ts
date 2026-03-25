@@ -20,6 +20,8 @@ const POST_INCLUDE = {
 // ── GET ────────────────────────────────────────────────────────────────────────
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
+  const session = await auth();
+  const userId = (session?.user as any)?.id as string | undefined;
 
   const page = Math.max(1, parseInt(searchParams.get('page') || '1'));
   const limit = Math.min(50, parseInt(searchParams.get('limit') || '12'));
@@ -33,6 +35,13 @@ export async function GET(req: NextRequest) {
   const sort = searchParams.get('sort') || 'newest';
   const dateFrom = searchParams.get('dateFrom');
   const dateTo = searchParams.get('dateTo');
+  const saved = searchParams.get('saved') === 'true';
+  const upvoted = searchParams.get('upvoted') === 'true';
+  const history = searchParams.get('history') === 'true';
+
+  if ((saved || upvoted || history) && !userId) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
 
   const where: any = { published: true };
 
@@ -61,11 +70,6 @@ export async function GET(req: NextRequest) {
     sort === 'oldest'    ? { publishedAt: 'asc' } :
                            { publishedAt: 'desc' };
 
-  const [posts, total] = await Promise.all([
-    prisma.post.findMany({ where, include: POST_INCLUDE, orderBy, skip, take: limit }),
-    prisma.post.count({ where }),
-  ]);
-
   const serialize = (p: any) => ({
     ...p,
     tags: p.tags.map((pt: any) => pt.tag),
@@ -73,6 +77,59 @@ export async function GET(req: NextRequest) {
     createdAt: p.createdAt.toISOString(),
     updatedAt: p.updatedAt.toISOString(),
   });
+
+  if (saved && userId) {
+    const [savedRows, total] = await Promise.all([
+      prisma.savedPost.findMany({
+        where: { userId, post: { published: true } },
+        orderBy: { savedAt: 'desc' },
+        skip,
+        take: limit,
+        include: { post: { include: POST_INCLUDE } },
+      }),
+      prisma.savedPost.count({ where: { userId, post: { published: true } } }),
+    ]);
+
+    const posts = savedRows.map(row => row.post);
+    return NextResponse.json({ items: posts.map(serialize), total, page, limit, hasMore: skip + limit < total });
+  }
+
+  if (upvoted && userId) {
+    const [upvoteRows, total] = await Promise.all([
+      prisma.upvote.findMany({
+        where: { userId, postId: { not: null }, post: { is: { published: true } } },
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: limit,
+        include: { post: { include: POST_INCLUDE } },
+      }),
+      prisma.upvote.count({ where: { userId, postId: { not: null }, post: { is: { published: true } } } }),
+    ]);
+
+    const posts = upvoteRows.map(row => row.post).filter(Boolean);
+    return NextResponse.json({ items: posts.map(serialize), total, page, limit, hasMore: skip + limit < total });
+  }
+
+  if (history && userId) {
+    const [historyRows, total] = await Promise.all([
+      prisma.readingHistory.findMany({
+        where: { userId, post: { published: true } },
+        orderBy: { readAt: 'desc' },
+        skip,
+        take: limit,
+        include: { post: { include: POST_INCLUDE } },
+      }),
+      prisma.readingHistory.count({ where: { userId, post: { published: true } } }),
+    ]);
+
+    const posts = historyRows.map(row => row.post);
+    return NextResponse.json({ items: posts.map(serialize), total, page, limit, hasMore: skip + limit < total });
+  }
+
+  const [posts, total] = await Promise.all([
+    prisma.post.findMany({ where, include: POST_INCLUDE, orderBy, skip, take: limit }),
+    prisma.post.count({ where }),
+  ]);
 
   return NextResponse.json({ items: posts.map(serialize), total, page, limit, hasMore: skip + limit < total });
 }

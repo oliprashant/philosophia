@@ -11,6 +11,31 @@ import { z } from 'zod';
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const postId = searchParams.get('postId');
+  const userIdParam = searchParams.get('userId');
+
+  if (userIdParam === 'me') {
+    const session = await auth();
+    if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+    const userId = (session.user as any).id as string;
+    const comments = await prisma.comment.findMany({
+      where: { authorId: userId, deleted: false },
+      orderBy: { createdAt: 'desc' },
+      include: {
+        post: { select: { id: true, title: true, slug: true } },
+      },
+      take: 100,
+    });
+
+    return NextResponse.json({
+      comments: comments.map(c => ({
+        id: c.id,
+        content: c.content,
+        createdAt: c.createdAt.toISOString(),
+        post: c.post,
+      })),
+    });
+  }
 
   if (!postId) return NextResponse.json({ error: 'postId required' }, { status: 400 });
 
