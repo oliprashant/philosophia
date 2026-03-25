@@ -59,6 +59,9 @@ export default function NewsletterSection() {
               <input
                 type="email" value={email} onChange={e => setEmail(e.target.value)}
                 placeholder="your@email.com" required
+                name="email"
+                autoComplete="email"
+                suppressHydrationWarning
                 className="w-full pl-10 pr-4 py-3 text-sm font-sans bg-[var(--bg-secondary)] border border-[var(--border)] focus:outline-none focus:border-[var(--accent)] transition-colors"
                 aria-label="Email address"
               />
