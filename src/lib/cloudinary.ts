@@ -108,4 +108,45 @@ export function generateSignedUploadParams(folder: string): {
   };
 }
 
+// ── Generate upload signature for direct browser upload ────────────────────────
+/**
+ * Generates a Cloudinary upload signature for direct browser uploads.
+ * Used by /api/upload/sign to allow client-side uploads without exposing secrets.
+ *
+ * @param folder - Cloudinary folder name (e.g. 'covers', 'avatars', 'inline')
+ * @param uploadPreset - Upload preset name
+ * @returns Signature payload for Cloudinary direct upload
+ */
+export function getUploadSignature(
+  folder: 'covers' | 'avatars' | 'inline',
+  uploadPreset: 'cover' | 'avatar' | 'inline'
+): {
+  signature: string;
+  timestamp: number;
+  cloudName: string;
+  apiKey: string;
+  folder: string;
+} {
+  const timestamp = Math.round(Date.now() / 1000);
+  const folderPath = `philosophia/${folder}`;
+  const params = {
+    timestamp,
+    folder: folderPath,
+    upload_preset: uploadPreset,
+  };
+
+  const signature = cloudinary.utils.api_sign_request(
+    params,
+    process.env.CLOUDINARY_API_SECRET!
+  );
+
+  return {
+    signature,
+    timestamp,
+    cloudName: process.env.CLOUDINARY_CLOUD_NAME!,
+    apiKey: process.env.CLOUDINARY_API_KEY!,
+    folder: folderPath,
+  };
+}
+
 export { cloudinary };

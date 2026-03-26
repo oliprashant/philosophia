@@ -169,22 +169,41 @@ function EditorWithSearchParams() {
       });
   }, [editId, editor]);
 
-  // Upload cover image
+  // Upload cover image directly to Cloudinary
   const uploadCover = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     setUploading(true);
-    const fd = new FormData();
-    fd.append('file', file);
-    fd.append('type', 'cover');
     try {
-      const res = await fetch('/api/upload', { method: 'POST', body: fd });
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data?.error || 'Upload failed');
+      // Step 1: Get signed upload credentials from backend
+      const signRes = await fetch('/api/upload/sign', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ folder: 'covers', type: 'cover' }),
+      });
+      if (!signRes.ok) {
+        const data = await signRes.json().catch(() => ({}));
+        throw new Error(data?.error || 'Failed to get upload signature');
       }
-      const data = await res.json();
-      setCoverImage(data.url);
+      const { signature, timestamp, cloudName, apiKey, folder } = await signRes.json();
+
+      // Step 2: Upload directly to Cloudinary
+      const uploadFormData = new FormData();
+      uploadFormData.append('file', file);
+      uploadFormData.append('signature', signature);
+      uploadFormData.append('timestamp', timestamp.toString());
+      uploadFormData.append('api_key', apiKey);
+      uploadFormData.append('folder', folder);
+
+      const uploadRes = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, {
+        method: 'POST',
+        body: uploadFormData,
+      });
+      if (!uploadRes.ok) {
+        throw new Error('Upload to Cloudinary failed');
+      }
+      const uploadData = await uploadRes.json();
+      setCoverImage(uploadData.secure_url);
       toast.success('Cover image uploaded');
     } catch (err: any) {
       toast.error(err?.message || 'Upload failed');
@@ -194,30 +213,48 @@ function EditorWithSearchParams() {
     }
   };
 
-  // Insert inline image into editor
+  // Insert inline image into editor (direct Cloudinary upload)
   const insertImage = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !editor) return;
 
     setUploading(true);
-    const fd = new FormData();
-    fd.append('file', file);
-    fd.append('type', 'inline');
-
     try {
-      const res = await fetch('/api/upload', { method: 'POST', body: fd });
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data?.error || 'Image upload failed');
+      // Step 1: Get signed upload credentials from backend
+      const signRes = await fetch('/api/upload/sign', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ folder: 'inline', type: 'inline' }),
+      });
+      if (!signRes.ok) {
+        const data = await signRes.json().catch(() => ({}));
+        throw new Error(data?.error || 'Failed to get upload signature');
       }
+      const { signature, timestamp, cloudName, apiKey, folder } = await signRes.json();
 
-      const data = await res.json();
-      // Keep editor writable after image insert by forcing a paragraph after the image.
+      // Step 2: Upload directly to Cloudinary
+      const uploadFormData = new FormData();
+      uploadFormData.append('file', file);
+      uploadFormData.append('signature', signature);
+      uploadFormData.append('timestamp', timestamp.toString());
+      uploadFormData.append('api_key', apiKey);
+      uploadFormData.append('folder', folder);
+
+      const uploadRes = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, {
+        method: 'POST',
+        body: uploadFormData,
+      });
+      if (!uploadRes.ok) {
+        throw new Error('Upload to Cloudinary failed');
+      }
+      const uploadData = await uploadRes.json();
+
+      // Step 3: Insert into editor with secure_url from Cloudinary
       editor
         .chain()
         .focus()
         .setImage({
-          src: data.url,
+          src: uploadData.secure_url,
           alt: '',
           class: ALIGNMENT_CLASSES.center,
           style: DEFAULT_IMAGE_STYLE,
