@@ -18,6 +18,9 @@ export const metadata: Metadata = {
   metadataBase: new URL('https://blogs.oliprashant.com.np'),
   title: { default: 'Philosophia', template: '%s — Philosophia' },
   description: 'A literary journal of philosophical inquiry. Essays, dialogues, and poems exploring the examined life.',
+  icons: {
+    icon: '/favicon.svg',
+  },
   keywords: ['philosophy', 'ethics', 'existentialism', 'metaphysics', 'essays'],
   authors: [{ name: 'Philosophia Editorial' }],
   openGraph: {
