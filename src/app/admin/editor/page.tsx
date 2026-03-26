@@ -201,12 +201,16 @@ function EditorWithSearchParams() {
         body: uploadFormData,
       });
       if (!uploadRes.ok) {
-        throw new Error('Upload to Cloudinary failed');
+        const errorData = await uploadRes.json().catch(() => ({ error: { message: 'Unknown error' } }));
+        const errorMsg = errorData?.error?.message || `Cloudinary error (${uploadRes.status})`;
+        console.error('[Cover Upload Error]', errorMsg, errorData);
+        throw new Error(`Upload failed: ${errorMsg}`);
       }
       const uploadData = await uploadRes.json();
       setCoverImage(uploadData.secure_url);
       toast.success('Cover image uploaded');
     } catch (err: any) {
+      console.error('[Cover Upload Catch]', err);
       toast.error(err?.message || 'Upload failed');
     } finally {
       setUploading(false);
@@ -247,7 +251,10 @@ function EditorWithSearchParams() {
         body: uploadFormData,
       });
       if (!uploadRes.ok) {
-        throw new Error('Upload to Cloudinary failed');
+        const errorData = await uploadRes.json().catch(() => ({ error: { message: 'Unknown error' } }));
+        const errorMsg = errorData?.error?.message || `Cloudinary error (${uploadRes.status})`;
+        console.error('[Inline Upload Error]', errorMsg, errorData);
+        throw new Error(`Upload failed: ${errorMsg}`);
       }
       const uploadData = await uploadRes.json();
 
@@ -267,6 +274,7 @@ function EditorWithSearchParams() {
 
       toast.success('Image inserted');
     } catch (err: any) {
+      console.error('[Inline Upload Catch]', err);
       toast.error(err?.message || 'Image upload failed');
     } finally {
       setUploading(false);
