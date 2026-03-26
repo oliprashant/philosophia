@@ -39,7 +39,14 @@ export async function POST(req: NextRequest) {
     const preset = presetMap[folder] as 'cover' | 'avatar' | 'inline';
     const signatureData = getUploadSignature(folder as 'covers' | 'avatars' | 'inline', preset);
 
-    return NextResponse.json(signatureData);
+    return NextResponse.json({
+      signature: signatureData.signature,
+      timestamp: signatureData.timestamp,
+      cloudName: signatureData.cloudName,
+      apiKey: signatureData.apiKey,
+      folder: signatureData.folder,
+      uploadPreset: signatureData.uploadPreset,
+    });
   } catch (err: any) {
     console.error('[Upload Sign]', err);
     return NextResponse.json({ error: 'Failed to generate signature' }, { status: 500 });

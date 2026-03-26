@@ -185,7 +185,7 @@ function EditorWithSearchParams() {
         const data = await signRes.json().catch(() => ({}));
         throw new Error(data?.error || 'Failed to get upload signature');
       }
-      const { signature, timestamp, cloudName, apiKey, folder } = await signRes.json();
+      const { signature, timestamp, cloudName, apiKey, folder, uploadPreset } = await signRes.json();
 
       // Step 2: Upload directly to Cloudinary
       const uploadFormData = new FormData();
@@ -194,6 +194,7 @@ function EditorWithSearchParams() {
       uploadFormData.append('timestamp', timestamp.toString());
       uploadFormData.append('api_key', apiKey);
       uploadFormData.append('folder', folder);
+      uploadFormData.append('upload_preset', uploadPreset);
 
       const uploadRes = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, {
         method: 'POST',
@@ -230,7 +231,7 @@ function EditorWithSearchParams() {
         const data = await signRes.json().catch(() => ({}));
         throw new Error(data?.error || 'Failed to get upload signature');
       }
-      const { signature, timestamp, cloudName, apiKey, folder } = await signRes.json();
+      const { signature, timestamp, cloudName, apiKey, folder, uploadPreset } = await signRes.json();
 
       // Step 2: Upload directly to Cloudinary
       const uploadFormData = new FormData();
@@ -239,6 +240,7 @@ function EditorWithSearchParams() {
       uploadFormData.append('timestamp', timestamp.toString());
       uploadFormData.append('api_key', apiKey);
       uploadFormData.append('folder', folder);
+      uploadFormData.append('upload_preset', uploadPreset);
 
       const uploadRes = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, {
         method: 'POST',

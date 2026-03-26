@@ -126,6 +126,7 @@ export function getUploadSignature(
   cloudName: string;
   apiKey: string;
   folder: string;
+  uploadPreset: string;
 } {
   const timestamp = Math.round(Date.now() / 1000);
   const folderPath = `philosophia/${folder}`;
@@ -146,6 +147,7 @@ export function getUploadSignature(
     cloudName: process.env.CLOUDINARY_CLOUD_NAME!,
     apiKey: process.env.CLOUDINARY_API_KEY!,
     folder: folderPath,
+    uploadPreset,
   };
 }
 
