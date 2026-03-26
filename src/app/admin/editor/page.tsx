@@ -183,12 +183,15 @@ function EditorWithSearchParams() {
         `https://api.cloudinary.com/v1_1/${process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME}/image/upload`,
         { method: 'POST', body: formData }
       );
-      if (!res.ok) throw new Error('Upload failed');
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error?.message || 'Upload failed');
+      }
       const data = await res.json();
       setCoverImage(data.secure_url);
       toast.success('Cover image uploaded');
     } catch (err: any) {
-      toast.error('Upload failed');
+      toast.error(err?.message || 'Upload failed');
     } finally {
       setUploading(false);
       e.target.value = '';
@@ -210,7 +213,10 @@ function EditorWithSearchParams() {
         `https://api.cloudinary.com/v1_1/${process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME}/image/upload`,
         { method: 'POST', body: formData }
       );
-      if (!res.ok) throw new Error('Upload failed');
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error?.message || 'Upload failed');
+      }
       const data = await res.json();
 
       // Insert into editor with secure_url from Cloudinary
@@ -229,7 +235,7 @@ function EditorWithSearchParams() {
 
       toast.success('Image inserted');
     } catch (err: any) {
-      toast.error('Upload failed');
+      toast.error(err?.message || 'Upload failed');
     } finally {
       setUploading(false);
       e.target.value = '';
