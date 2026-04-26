@@ -79,8 +79,6 @@ Open [http://localhost:3000](http://localhost:3000).
 | `NEXTAUTH_URL` | ✅ | Full URL of your site (`http://localhost:3000` in dev) |
 | `GOOGLE_CLIENT_ID` | OAuth | Google Cloud Console |
 | `GOOGLE_CLIENT_SECRET` | OAuth | Google Cloud Console |
-| `FACEBOOK_CLIENT_ID` | OAuth | Meta Developer Portal |
-| `FACEBOOK_CLIENT_SECRET` | OAuth | Meta Developer Portal |
 | `OPENAI_API_KEY` | AI | OpenAI platform — GPT-4o |
 | `CLOUDINARY_CLOUD_NAME` | Images | Cloudinary dashboard |
 | `CLOUDINARY_API_KEY` | Images | Cloudinary dashboard |
@@ -105,15 +103,6 @@ Open [http://localhost:3000](http://localhost:3000).
 2. Create a new project → APIs & Services → Credentials → OAuth 2.0 Client ID
 3. Authorized redirect URI: `https://your-domain.com/api/auth/callback/google`
 4. Copy Client ID and Secret to `.env.local`
-
-### Facebook
-
-1. Go to [Meta for Developers](https://developers.facebook.com/)
-2. Create an app → Facebook Login → Settings
-3. Valid OAuth Redirect URI: `https://your-domain.com/api/auth/callback/facebook`
-4. Copy App ID and App Secret to `.env.local`
-
----
 
 ## Project Structure
 

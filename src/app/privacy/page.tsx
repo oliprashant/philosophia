@@ -54,7 +54,7 @@ export default function PrivacyPolicyPage() {
             <ul className="list-disc pl-5 space-y-2 marker:text-[var(--accent)]">
               <li>
                 <strong>Account information:</strong> name and email address when you sign in with Google,
-                GitHub, or Facebook OAuth, or when you register using email and password.
+                GitHub, or when you register using email and password.
               </li>
               <li>
                 <strong>User activity data:</strong> highlights, comments, and upvotes you create while using

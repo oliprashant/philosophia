@@ -55,8 +55,7 @@ export default function DataDeletionPage() {
           User Data Deletion
         </h1>
         <p className="mt-4 text-base sm:text-lg text-[var(--text-muted)] leading-relaxed max-w-3xl">
-          This page explains how to request deletion of your account and personal data from Philosophia,
-          including data associated with Facebook Login.
+          This page explains how to request deletion of your account and personal data from Philosophia.
         </p>
         <p className="mt-4 text-sm text-[var(--text-faint)] font-sans">Last updated: {LAST_UPDATED}</p>
       </header>
@@ -111,18 +110,6 @@ export default function DataDeletionPage() {
           </p>
         </section>
 
-        <section>
-          <h2
-            className="text-2xl sm:text-3xl font-semibold text-[var(--text-primary)]"
-            style={{ fontFamily: 'var(--font-cormorant)' }}
-          >
-            Facebook Login Users
-          </h2>
-          <p className="mt-4">
-            If you signed in using Facebook Login and remove the app from Facebook, you can still use the
-            email process above to request full account and data deletion from our systems.
-          </p>
-        </section>
       </div>
     </div>
   );

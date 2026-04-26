@@ -5,7 +5,6 @@
 import NextAuth from 'next-auth';
 import { PrismaAdapter } from '@auth/prisma-adapter';
 import GoogleProvider from 'next-auth/providers/google';
-import FacebookProvider from 'next-auth/providers/facebook';
 import GitHubProvider from 'next-auth/providers/github'; 
 import CredentialsProvider from 'next-auth/providers/credentials';
 import bcrypt from 'bcryptjs';
@@ -31,12 +30,6 @@ export const authConfig: NextAuthConfig = {
       clientId: process.env.GOOGLE_CLIENT_ID!,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
       authorization: { params: { prompt: 'consent', access_type: 'offline', response_type: 'code' } },
-    }),
-
-    // ── Facebook OAuth ────────────────────────────────────────────────────────
-    FacebookProvider({
-      clientId: process.env.FACEBOOK_CLIENT_ID!,
-      clientSecret: process.env.FACEBOOK_CLIENT_SECRET!,
     }),
 
      // ── GitHub OAuth ──────────────────────────────  ← add this block
