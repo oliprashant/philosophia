@@ -5,19 +5,61 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Loader2, Lock, Eye, EyeOff, CheckCircle2 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { getSupabaseBrowserClient } from '@/lib/supabase/client';
 
 function ResetPasswordContent() {
   const router = useRouter();
   const params = useSearchParams();
-  const token = params.get('token') || '';
+  const code = params.get('code');
 
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPwd, setShowPwd] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
+  const [checkingRecovery, setCheckingRecovery] = useState(true);
+  const [recoveryReady, setRecoveryReady] = useState(false);
+  const [accessToken, setAccessToken] = useState('');
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [redirectIn, setRedirectIn] = useState(2);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const setupRecoverySession = async () => {
+      try {
+        const supabase = getSupabaseBrowserClient();
+
+        // For PKCE-based recovery links, Supabase sends a `code` query param.
+        if (code) {
+          const { error } = await supabase.auth.exchangeCodeForSession(code);
+          if (error) throw error;
+        }
+
+        const { data, error } = await supabase.auth.getSession();
+        if (error) throw error;
+
+        if (!cancelled && data.session?.access_token && data.session.user?.email) {
+          setAccessToken(data.session.access_token);
+          setRecoveryReady(true);
+        }
+      } catch {
+        if (!cancelled) {
+          setRecoveryReady(false);
+        }
+      } finally {
+        if (!cancelled) {
+          setCheckingRecovery(false);
+        }
+      }
+    };
+
+    setupRecoverySession();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [code]);
 
   useEffect(() => {
     if (!success) return;
@@ -39,8 +81,8 @@ function ResetPasswordContent() {
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!token) {
-      toast.error('Invalid reset link');
+    if (!recoveryReady || !accessToken) {
+      toast.error('Invalid or expired recovery link');
       return;
     }
 
@@ -56,16 +98,28 @@ function ResetPasswordContent() {
 
     setLoading(true);
     try {
+      const supabase = getSupabaseBrowserClient();
+
+      const { error: supabaseError } = await supabase.auth.updateUser({
+        password,
+      });
+
+      if (supabaseError) {
+        throw new Error(supabaseError.message);
+      }
+
       const res = await fetch('/api/auth/reset-password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token, password }),
+        body: JSON.stringify({ accessToken, password }),
       });
       const data = await res.json();
 
       if (!res.ok) {
         throw new Error(data.error || 'Could not reset password');
       }
+
+      await supabase.auth.signOut();
 
       toast.success('Password reset successful. Redirecting to sign in...');
       setSuccess(true);
@@ -90,7 +144,19 @@ function ResetPasswordContent() {
         </div>
 
         <div className="border border-[var(--border)] p-8 bg-[var(--bg-primary)]">
-          {success ? (
+          {checkingRecovery ? (
+            <div className="text-center space-y-3">
+              <Loader2 size={24} className="mx-auto animate-spin text-[var(--accent)]" />
+              <p className="text-sm font-sans text-[var(--text-muted)]">Validating recovery link…</p>
+            </div>
+          ) : !recoveryReady ? (
+            <div className="space-y-4 text-center">
+              <p className="text-sm font-sans text-red-600">This password reset link is invalid or expired.</p>
+              <Link href="/auth/forgot-password" className="text-sm font-sans text-[var(--accent)] hover:underline">
+                Request a new reset link
+              </Link>
+            </div>
+          ) : success ? (
             <div className="text-center space-y-4">
               <div className="flex justify-center">
                 <CheckCircle2 size={32} className="text-green-600" />

@@ -1,8 +1,7 @@
 // src/app/api/auth/forgot-password/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { sendEmail } from '@/lib/mailer';
-import { randomBytes, createHash } from 'crypto';
+import { getSupabaseServerClient } from '@/lib/supabase/server';
 import { z } from 'zod';
 
 const schema = z.object({
@@ -11,7 +10,6 @@ const schema = z.object({
 
 export async function POST(req: NextRequest) {
   try {
-    const db = prisma as any;
     const body = await req.json();
     const parsed = schema.safeParse(body);
     if (!parsed.success) {
@@ -22,54 +20,29 @@ export async function POST(req: NextRequest) {
 
     const user = await prisma.user.findUnique({
       where: { email },
-      select: { id: true, email: true, name: true },
+      select: { email: true, password: true },
     });
 
     // Always return success to avoid user enumeration.
-    if (!user || !user.email) {
+    if (!user?.email) {
       return NextResponse.json({ success: true });
     }
 
-    const rawToken = randomBytes(32).toString('hex');
-    const tokenHash = createHash('sha256').update(rawToken).digest('hex');
-    const expiresAt = new Date(Date.now() + 1000 * 60 * 30);
+    // OAuth-only users (e.g., Google with no local password) do not have resettable credentials.
+    if (!user.password) {
+      return NextResponse.json({ success: true });
+    }
 
-    await db.passwordResetToken.deleteMany({
-      where: { userId: user.id, usedAt: null },
-    });
+    const supabase = getSupabaseServerClient();
+    const origin = new URL(req.url).origin;
+    const isLocal = origin.includes('localhost');
+    const redirectBase = isLocal ? 'http://localhost:3000' : 'https://blogs.oliprashant.com.np';
+    const redirectTo = `${redirectBase}/auth/reset-password`;
 
-    await db.passwordResetToken.create({
-      data: {
-        userId: user.id,
-        tokenHash,
-        expiresAt,
-      },
-    });
-
-    const baseUrl = process.env.NEXTAUTH_URL || new URL(req.url).origin;
-    const resetUrl = `${baseUrl}/auth/reset-password?token=${rawToken}`;
-
-    const html = `
-      <div style="font-family: Georgia, serif; line-height: 1.6; color: #2b2b2b;">
-        <h2 style="margin-bottom: 8px;">Reset your Philosophia password</h2>
-        <p>Hello ${user.name ?? 'Reader'},</p>
-        <p>We received a request to reset your password. Click the button below to continue:</p>
-        <p style="margin: 24px 0;">
-          <a href="${resetUrl}" style="background:#1f1408;color:#fff;padding:10px 18px;text-decoration:none;display:inline-block;">Reset Password</a>
-        </p>
-        <p>This link expires in 30 minutes.</p>
-        <p>If you did not request this, you can ignore this email.</p>
-      </div>
-    `;
-
-    const emailResult = await sendEmail({
-      to: user.email,
-      subject: 'Reset your Philosophia password',
-      html,
-    });
-
-    if (!emailResult.sent) {
-      console.log('[Forgot Password] SMTP not configured. Reset link:', resetUrl);
+    const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo });
+    if (error) {
+      console.error('[Forgot Password POST] Supabase error:', error.message);
+      return NextResponse.json({ error: 'Failed to process request' }, { status: 500 });
     }
 
     return NextResponse.json({ success: true });

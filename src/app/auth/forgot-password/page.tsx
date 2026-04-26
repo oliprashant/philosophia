@@ -39,14 +39,17 @@ export default function ForgotPasswordPage() {
               Philosophia
             </h1>
           </Link>
-          <p className="text-sm text-[var(--text-faint)] mt-2 font-sans">Reset your password</p>
+          <p className="text-sm text-[var(--text-faint)] mt-2 font-sans">Reset your account password</p>
         </div>
 
         <div className="border border-[var(--border)] p-8 bg-[var(--bg-primary)]">
           {done ? (
             <div className="space-y-4">
               <p className="text-sm font-sans text-[var(--text-muted)]">
-                If an account exists for this email, a reset link has been sent.
+                If an email/password account exists for this email, a reset link has been sent.
+              </p>
+              <p className="text-xs font-sans text-[var(--text-faint)]">
+                If you normally sign in with Google, you do not have a local password to reset.
               </p>
               <Link href="/auth/signin" className="text-sm font-sans text-[var(--accent)] hover:underline">
                 Back to sign in
