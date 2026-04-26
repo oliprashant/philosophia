@@ -18,6 +18,7 @@ const FOOTER_LINKS = {
     { label: 'Privacy Policy', href: '/privacy' },
     { label: 'Terms of Use', href: '/terms' },
     { label: 'Cookie Policy', href: '/cookies' },
+    { label: 'Data Deletion', href: '/data-deletion' },
   ],
 };
 
@@ -119,6 +120,12 @@ export default function Footer() {
               className="text-xs font-sans text-[var(--text-faint)] hover:text-[var(--accent)] transition-colors"
             >
               Cookie Policy
+            </Link>
+            <Link
+              href="/data-deletion"
+              className="text-xs font-sans text-[var(--text-faint)] hover:text-[var(--accent)] transition-colors"
+            >
+              Data Deletion
             </Link>
           </nav>
 
