@@ -1,8 +1,7 @@
-// src/app/api/auth/forgot-password/route.ts
 import { NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
 import { getSupabaseServerClient } from '@/lib/supabase/server';
-import { z } from 'zod';
 
 const schema = z.object({
   email: z.string().email(),
@@ -12,6 +11,7 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const parsed = schema.safeParse(body);
+
     if (!parsed.success) {
       return NextResponse.json({ error: 'Invalid email' }, { status: 400 });
     }
@@ -23,26 +23,32 @@ export async function POST(req: NextRequest) {
       select: { email: true, password: true },
     });
 
-    // Always return success to avoid user enumeration.
-    if (!user?.email) {
-      return NextResponse.json({ success: true });
-    }
-
-    // OAuth-only users (e.g., Google with no local password) do not have resettable credentials.
-    if (!user.password) {
+    // Keep enumeration protection behavior aligned with forgot-password.
+    if (!user?.email || !user.password) {
       return NextResponse.json({ success: true });
     }
 
     const supabase = getSupabaseServerClient();
-    const { error } = await supabase.auth.resetPasswordForEmail(email);
+    const resendResult = await supabase.auth.resend({
+      // Cast to allow recovery type across Supabase SDK unions.
+      type: 'recovery' as any,
+      email,
+    });
+
+    const fallbackResult = resendResult.error
+      ? await supabase.auth.resetPasswordForEmail(email)
+      : { error: null };
+
+    const error = resendResult.error ?? fallbackResult.error;
+
     if (error) {
-      console.error('[Forgot Password POST] Supabase error:', error.message);
-      return NextResponse.json({ error: 'Could not send verification code' }, { status: 500 });
+      console.error('[Resend OTP POST] Supabase error:', error.message);
+      return NextResponse.json({ error: 'Could not resend verification code' }, { status: 500 });
     }
 
     return NextResponse.json({ success: true });
-  } catch (err) {
-    console.error('[Forgot Password POST]', err);
+  } catch (error) {
+    console.error('[Resend OTP POST]', error);
     return NextResponse.json({ error: 'Could not process request' }, { status: 500 });
   }
 }

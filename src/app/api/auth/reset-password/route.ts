@@ -6,8 +6,9 @@ import bcrypt from 'bcryptjs';
 import { z } from 'zod';
 
 const schema = z.object({
-  accessToken: z.string().min(1),
-  password: z.string().min(8).max(100),
+  token: z.string().min(1),
+  newPassword: z.string().min(8).max(100),
+  refreshToken: z.string().min(1).optional(),
 });
 
 export async function POST(req: NextRequest) {
@@ -18,9 +19,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Invalid data' }, { status: 400 });
     }
 
-    const { accessToken, password } = parsed.data;
+    const { token, newPassword, refreshToken } = parsed.data;
     const supabase = getSupabaseServerClient();
-    const { data: authData, error: authError } = await supabase.auth.getUser(accessToken);
+    const { data: authData, error: authError } = await supabase.auth.getUser(token);
 
     if (authError || !authData.user?.email) {
       return NextResponse.json({ error: 'Invalid or expired reset link' }, { status: 400 });
@@ -43,7 +44,50 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const passwordHash = await bcrypt.hash(password, 12);
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseAnonKey =
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+
+    if (!supabaseUrl || !supabaseAnonKey) {
+      return NextResponse.json({ error: 'Supabase credentials are not configured' }, { status: 500 });
+    }
+
+    // Prefer SDK session flow if refresh token is available.
+    let supabaseUpdated = false;
+    if (refreshToken) {
+      const { error: setSessionError } = await supabase.auth.setSession({
+        access_token: token,
+        refresh_token: refreshToken,
+      });
+
+      if (!setSessionError) {
+        const { error: updateUserError } = await supabase.auth.updateUser({
+          password: newPassword,
+        });
+        supabaseUpdated = !updateUserError;
+      }
+    }
+
+    // Fallback: call GoTrue endpoint directly with access token.
+    if (!supabaseUpdated) {
+      const supabaseResponse = await fetch(`${supabaseUrl}/auth/v1/user`, {
+        method: 'PUT',
+        headers: {
+          apikey: supabaseAnonKey,
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ password: newPassword }),
+      });
+
+      if (!supabaseResponse.ok) {
+        const rawError = await supabaseResponse.text();
+        console.error('[Reset Password POST] Supabase update error:', rawError);
+        return NextResponse.json({ error: 'Could not update password in Supabase' }, { status: 400 });
+      }
+    }
+
+    const passwordHash = await bcrypt.hash(newPassword, 12);
     await prisma.user.update({
       where: { id: user.id },
       data: { password: passwordHash },
