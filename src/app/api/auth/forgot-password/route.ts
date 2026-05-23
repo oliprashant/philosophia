@@ -51,6 +51,19 @@ export async function POST(req: NextRequest) {
               const emailMatch = raw.match(/([A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,})/i);
               if (emailMatch && emailMatch[1]) body = { email: emailMatch[1] };
               else {
+                // Very permissive: find '@' and expand left/right to capture surrounding token
+                const at = raw.indexOf('@');
+                if (at !== -1) {
+                  const leftChars = ' \n\r\t,;:\"\'`{}[]()<>|';
+                  let l = at - 1;
+                  while (l >= 0 && !leftChars.includes(raw[l])) l -= 1;
+                  let r = at + 1;
+                  while (r < raw.length && !leftChars.includes(raw[r])) r += 1;
+                  const candidate = raw.slice(l + 1, r).trim();
+                  if (candidate) body = { email: candidate };
+                }
+              }
+              else {
                 console.error('[Forgot Password POST] Invalid JSON body and could not parse as urlencoded:', raw, parseErr && parseErr.message ? parseErr.message : parseErr);
                 return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
               }
