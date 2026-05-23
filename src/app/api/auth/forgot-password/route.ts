@@ -42,9 +42,15 @@ export async function POST(req: NextRequest) {
           const m = /email\s*=\s*([^&\s]+)/i.exec(raw);
           if (m && m[1]) body = { email: decodeURIComponent(m[1]) };
           else {
-            console.error('[Forgot Password POST] Invalid JSON body and could not parse as urlencoded:', raw, parseErr && parseErr.message ? parseErr.message : parseErr);
-            return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
+            // Also handle legacy/raw shapes like: {email:someone@domain} or { email: someone@domain }
+            const m2 = /\{\s*email\s*:\s*([^\}\s]+)\s*\}/i.exec(raw);
+            if (m2 && m2[1]) body = { email: decodeURIComponent(m2[1]) };
+            else {
+              console.error('[Forgot Password POST] Invalid JSON body and could not parse as urlencoded:', raw, parseErr && parseErr.message ? parseErr.message : parseErr);
+              return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
+            }
           }
+        }
         }
       } catch (e) {
         console.error('[Forgot Password POST] Invalid JSON body and fallback parsing failed:', raw, e);
