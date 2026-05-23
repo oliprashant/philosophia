@@ -30,8 +30,26 @@ export async function POST(req: NextRequest) {
     try {
       body = raw ? JSON.parse(raw) : {};
     } catch (parseErr) {
-      console.error('[Forgot Password POST] Invalid JSON body:', raw, parseErr && parseErr.message ? parseErr.message : parseErr);
-      return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
+      // Try to be tolerant: some clients (or proxies) may send urlencoded or plain 'email=...' bodies.
+      try {
+        // Attempt URLSearchParams parsing (application/x-www-form-urlencoded)
+        const params = new URLSearchParams(raw);
+        const emailFromParams = params.get('email');
+        if (emailFromParams) {
+          body = { email: decodeURIComponent(emailFromParams) };
+        } else {
+          // Fallback: try to extract email with a simple regex
+          const m = /email\s*=\s*([^&\s]+)/i.exec(raw);
+          if (m && m[1]) body = { email: decodeURIComponent(m[1]) };
+          else {
+            console.error('[Forgot Password POST] Invalid JSON body and could not parse as urlencoded:', raw, parseErr && parseErr.message ? parseErr.message : parseErr);
+            return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
+          }
+        }
+      } catch (e) {
+        console.error('[Forgot Password POST] Invalid JSON body and fallback parsing failed:', raw, e);
+        return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
+      }
     }
 
     const parsed = schema.safeParse(body);
