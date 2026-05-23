@@ -16,13 +16,21 @@ function maskEmail(email: string): string {
 
 export async function POST(req: NextRequest) {
   try {
+    console.info('[Forgot Password POST] invoked', { path: req.nextUrl.pathname, method: req.method });
     // Read raw body first to capture malformed JSON in logs if present
-    const raw = await req.text();
-    let body: any;
+    let raw = '';
+    try {
+      raw = await req.text();
+    } catch (e) {
+      console.error('[Forgot Password POST] req.text() failed', e);
+      return NextResponse.json({ error: 'Could not read request body' }, { status: 500 });
+    }
+
+    let body: any = {};
     try {
       body = raw ? JSON.parse(raw) : {};
     } catch (parseErr) {
-      console.error('[Forgot Password POST] Invalid JSON body:', raw);
+      console.error('[Forgot Password POST] Invalid JSON body:', raw, parseErr && parseErr.message ? parseErr.message : parseErr);
       return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
     }
 
