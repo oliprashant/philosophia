@@ -27,6 +27,7 @@ export async function POST(req: NextRequest) {
     }
 
     let body: any = {};
+    console.info('[Forgot Password POST] raw body preview:', raw ? raw.slice(0, 300) : '<empty>');
     try {
       body = raw ? JSON.parse(raw) : {};
     } catch (parseErr) {
