@@ -27,7 +27,7 @@ export default function ForgotPasswordPage() {
         const data = await res.json();
         if (res.ok) {
           toast.success("We've sent a password reset link to your email");
-          router.push(`/auth/signin?reset=true`);
+          router.push(`/auth/verify-otp?email=${encodeURIComponent(email.trim().toLowerCase())}`);
           return;
         }
         // fallthrough to client-side supabase call
@@ -41,7 +41,7 @@ export default function ForgotPasswordPage() {
       if (error) throw error;
 
       toast.success("We've sent a password reset link to your email");
-      router.push(`/auth/signin?reset=true`);
+      router.push(`/auth/verify-otp?email=${encodeURIComponent(email.trim().toLowerCase())}`);
     } catch {
       toast.error('Could not process request');
     } finally {
