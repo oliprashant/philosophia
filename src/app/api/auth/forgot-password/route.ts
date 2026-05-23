@@ -47,8 +47,13 @@ export async function POST(req: NextRequest) {
             const m2 = /\{\s*email\s*:\s*([^\}\s]+)\s*\}/i.exec(raw);
             if (m2 && m2[1]) body = { email: decodeURIComponent(m2[1]) };
             else {
-              console.error('[Forgot Password POST] Invalid JSON body and could not parse as urlencoded:', raw, parseErr && parseErr.message ? parseErr.message : parseErr);
-              return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
+              // Final fallback: extract the first email-like substring anywhere in the body
+              const emailMatch = raw.match(/([A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,})/i);
+              if (emailMatch && emailMatch[1]) body = { email: emailMatch[1] };
+              else {
+                console.error('[Forgot Password POST] Invalid JSON body and could not parse as urlencoded:', raw, parseErr && parseErr.message ? parseErr.message : parseErr);
+                return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
+              }
             }
           }
         }
