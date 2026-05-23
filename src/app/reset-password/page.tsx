@@ -64,6 +64,12 @@ function ResetPasswordContent() {
 
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [showOtpInput, setShowOtpInput] = useState(false);
+  const [otpEmail, setOtpEmail] = useState('');
+  const OTP_LENGTH = 8;
+  const [otp, setOtp] = useState<string[]>(Array(OTP_LENGTH).fill(''));
+  const otpRefs = useRef<Array<HTMLInputElement | null>>([]);
+  const [verifyingOtp, setVerifyingOtp] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -84,6 +90,61 @@ function ResetPasswordContent() {
       toast.success('Strong password generated and copied');
     } catch {
       toast.success('Strong password generated');
+    }
+  };
+
+  const handleOtpChange = (index: number, value: string) => {
+    const digit = value.replace(/\D/g, '').slice(-1);
+    const next = [...otp];
+    next[index] = digit;
+    setOtp(next);
+    if (digit && index < OTP_LENGTH - 1) otpRefs.current[index + 1]?.focus();
+  };
+
+  const handleOtpPaste = (event: React.ClipboardEvent<HTMLInputElement>) => {
+    event.preventDefault();
+    const pasted = event.clipboardData.getData('text').replace(/\D/g, '').slice(0, OTP_LENGTH);
+    if (!pasted) return;
+    const next = Array(OTP_LENGTH).fill('');
+    pasted.split('').forEach((char, idx) => (next[idx] = char));
+    setOtp(next);
+    otpRefs.current[Math.min(pasted.length, OTP_LENGTH) - 1]?.focus();
+  };
+
+  const verifyOtpAndUse = async () => {
+    const code = otp.join('');
+    if (!otpEmail) {
+      toast.error('Please enter your email');
+      return;
+    }
+    if (code.length !== OTP_LENGTH) {
+      toast.error(`Enter the full ${OTP_LENGTH}-digit code`);
+      return;
+    }
+
+    setVerifyingOtp(true);
+    try {
+      const res = await fetch('/api/auth/verify-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: otpEmail, otp: code }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Invalid code');
+
+      // store refresh token and set token so submit can proceed
+      sessionStorage.setItem('reset_refresh_token', data.refreshToken || '');
+      // Set token variable by replacing location (so local token var picks up)
+      // We can't set the `token` declared above (not a state), so push it into URL and replace
+      const newUrl = new URL(window.location.href);
+      newUrl.searchParams.set('token', data.accessToken);
+      window.history.replaceState({}, '', newUrl.toString());
+      toast.success('Code accepted — you can now set a new password');
+      // optional: set local token var by re-reading search params
+    } catch (err: any) {
+      toast.error(err.message || 'Could not verify code');
+    } finally {
+      setVerifyingOtp(false);
     }
   };
 
@@ -154,6 +215,58 @@ function ResetPasswordContent() {
             <div className="mb-4 text-sm text-[var(--text-faint)]">
               We couldn't find a recovery token in the URL. Please open the password reset link from your email. If that
               doesn't work, request a new reset from the sign-in page.
+            </div>
+          )}
+
+          {!token && (
+            <div className="mb-4">
+              <button
+                type="button"
+                onClick={() => setShowOtpInput(prev => !prev)}
+                className="text-xs font-sans text-[var(--text-primary)] hover:underline"
+              >
+                {showOtpInput ? 'Hide' : 'Have an 8-digit code instead? Enter it here'}
+              </button>
+
+              {showOtpInput && (
+                <div className="mt-3 space-y-2">
+                  <label className="block text-xs font-sans text-[var(--text-muted)]">Email</label>
+                  <input
+                    type="email"
+                    value={otpEmail}
+                    onChange={e => setOtpEmail(e.target.value)}
+                    className="w-full px-3 py-2.5 text-sm font-sans bg-[var(--bg-secondary)] border border-[var(--border)] rounded-lg"
+                    placeholder="you@example.com"
+                  />
+
+                  <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${OTP_LENGTH}, minmax(0, 1fr))` }}>
+                    {otp.map((d, i) => (
+                      <input
+                        key={i}
+                        ref={el => (otpRefs.current[i] = el)}
+                        type="text"
+                        inputMode="numeric"
+                        maxLength={1}
+                        value={d}
+                        onChange={e => handleOtpChange(i, e.target.value)}
+                        onPaste={handleOtpPaste}
+                        className="h-12 w-full rounded-lg border border-[var(--border)] bg-[var(--bg-secondary)] text-center text-lg font-semibold text-[var(--text-primary)] outline-none"
+                      />
+                    ))}
+                  </div>
+
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={verifyOtpAndUse}
+                      disabled={verifyingOtp}
+                      className="w-full py-2.5 text-sm font-sans font-medium rounded-lg bg-[var(--text-primary)] text-[var(--bg-primary)] hover:bg-[var(--accent)] disabled:opacity-60 transition-colors"
+                    >
+                      {verifyingOtp ? 'Verifying…' : 'Use code'}
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
