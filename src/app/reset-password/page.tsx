@@ -36,15 +36,31 @@ function getPasswordStrength(password: string) {
   if (/\d/.test(password)) score += 1;
   if (/[^A-Za-z0-9]/.test(password)) score += 1;
 
-  if (score <= 2) return { label: 'Weak', width: '33%', color: 'bg-red-500' };
-  if (score <= 4) return { label: 'Medium', width: '66%', color: 'bg-amber-500' };
-  return { label: 'Strong', width: '100%', color: 'bg-emerald-500' };
+  if (score >= 5) return { label: 'Very strong', width: '100%', color: 'bg-emerald-500' };
+  if (score >= 4) return { label: 'Strong', width: '75%', color: 'bg-emerald-400' };
+  if (score >= 3) return { label: 'Okay', width: '50%', color: 'bg-amber-400' };
+  return { label: 'Weak', width: '25%', color: 'bg-red-400' };
 }
 
 function ResetPasswordContent() {
   const router = useRouter();
   const params = useSearchParams();
-  const token = params.get('token') || '';
+
+  // Support token in query params (token, access_token) and in URL fragment (#access_token=...)
+  const getTokenFromFragment = () => {
+    if (typeof window === 'undefined') return '';
+    const hash = window.location.hash || '';
+    if (!hash) return '';
+    try {
+      const qp = new URLSearchParams(hash.replace(/^#/, ''));
+      return qp.get('token') || qp.get('access_token') || qp.get('accessToken') || qp.get('recovery_token') || qp.get('oobCode') || '';
+    } catch {
+      return '';
+    }
+  };
+
+  let token = params.get('token') || params.get('access_token') || '';
+  if (!token && typeof window !== 'undefined') token = getTokenFromFragment();
 
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -56,15 +72,19 @@ function ResetPasswordContent() {
 
   useEffect(() => {
     // If user landed here without a token, stay on page and show guidance.
-    // Keep simple: don't auto-redirect to forgot-password immediately.
-  }, []);
+    // Don't auto-redirect immediately to allow manual copy-paste flows.
+  }, [token]);
 
   const fillStrongPassword = async () => {
     const generated = generateStrongPassword();
     setPassword(generated);
     setConfirmPassword(generated);
-    await navigator.clipboard.writeText(generated);
-    toast.success('Strong password generated and copied');
+    try {
+      await navigator.clipboard.writeText(generated);
+      toast.success('Strong password generated and copied');
+    } catch {
+      toast.success('Strong password generated');
+    }
   };
 
   const copyPassword = async () => {

@@ -6,7 +6,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { ArrowLeft, Check, Loader2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
-const OTP_LENGTH = 6;
+const OTP_LENGTH = 8;
 const RESEND_SECONDS = 60;
 
 function VerifyOtpContent() {
@@ -84,7 +84,7 @@ function VerifyOtpContent() {
   const verifyOtp = async () => {
     const code = otp.join('');
     if (code.length !== OTP_LENGTH) {
-      toast.error('Please enter the full 6-digit code');
+      toast.error(`Please enter the full ${OTP_LENGTH}-digit code`);
       return;
     }
 
@@ -155,12 +155,12 @@ function VerifyOtpContent() {
 
         <div className={`border border-[var(--border)] rounded-xl p-8 bg-[var(--bg-primary)] shadow-sm transition-all ${shake ? 'animate-[shake_0.45s_ease]' : ''} ${pulseSuccess ? 'animate-pulse' : ''}`}>
           <p className="text-sm font-sans text-[var(--text-muted)] mb-5 text-center">
-            Enter the 6-digit code sent to
+            Enter the verification code sent to
             <br />
             <span className="text-[var(--text-primary)] font-medium">{email}</span>
           </p>
 
-          <div className="grid grid-cols-6 gap-2 mb-5">
+          <div className="grid gap-2 mb-5" style={{ gridTemplateColumns: `repeat(${OTP_LENGTH}, minmax(0, 1fr))` }}>
             {otp.map((digit, index) => (
               <input
                 key={index}

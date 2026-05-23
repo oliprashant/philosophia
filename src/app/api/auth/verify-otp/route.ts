@@ -4,7 +4,8 @@ import { getSupabaseServerClient } from '@/lib/supabase/server';
 
 const schema = z.object({
   email: z.string().email(),
-  otp: z.string().regex(/^\d{6}$/, 'OTP must be 6 digits'),
+  // Accept 6 to 8 digit OTP codes (Supabase may send 6 or 8 digits depending on configuration)
+  otp: z.string().regex(/^\d{6,8}$/, 'OTP must be 6 to 8 digits'),
 });
 
 export async function POST(req: NextRequest) {
