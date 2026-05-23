@@ -29,50 +29,57 @@ export async function POST(req: NextRequest) {
     let body: any = {};
     console.error('[Forgot Password POST] raw body preview:', raw ? raw.slice(0, 300) : '<empty>');
     try {
-      body = raw ? JSON.parse(raw) : {};
+      // Fast-path: some clients (PowerShell curl variants) send {email:foo@bar} (no quotes).
+      // Detect that shape and extract without invoking JSON.parse which will throw.
+      const unquotedObjMatch = /\{\s*email\s*:\s*([^\}\s]+)\s*\}/i.exec(raw || '');
+      if (unquotedObjMatch && unquotedObjMatch[1]) {
+        body = { email: unquotedObjMatch[1] };
+      } else {
+        body = raw ? JSON.parse(raw) : {};
+      }
     } catch (parseErr) {
-      // Try to be tolerant: some clients (or proxies) may send urlencoded or plain 'email=...' bodies.
-      try {
-        // Attempt URLSearchParams parsing (application/x-www-form-urlencoded)
-        const params = new URLSearchParams(raw);
-        const emailFromParams = params.get('email');
-        if (emailFromParams) {
-          body = { email: decodeURIComponent(emailFromParams) };
-        } else {
-          // Fallback: try to extract email with a simple regex
+      // Try multiple tolerant parsing strategies in order and return the first match.
+      const tryExtractEmail = () => {
+        try {
+          // 1) application/x-www-form-urlencoded
+          const params = new URLSearchParams(raw);
+          const emailFromParams = params.get('email');
+          if (emailFromParams) return decodeURIComponent(emailFromParams);
+
+          // 2) email=... within body
           const m = /email\s*=\s*([^&\s]+)/i.exec(raw);
-          if (m && m[1]) body = { email: decodeURIComponent(m[1]) };
-          else {
-            // Also handle legacy/raw shapes like: {email:someone@domain} or { email: someone@domain }
-            const m2 = /\{\s*email\s*:\s*([^\}\s]+)\s*\}/i.exec(raw);
-            if (m2 && m2[1]) body = { email: decodeURIComponent(m2[1]) };
-            else {
-              // Final fallback: extract the first email-like substring anywhere in the body
-              const emailMatch = raw.match(/([A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,})/i);
-              if (emailMatch && emailMatch[1]) body = { email: emailMatch[1] };
-              else {
-                // Very permissive: find '@' and expand left/right to capture surrounding token
-                const at = raw.indexOf('@');
-                if (at !== -1) {
-                  const leftChars = ' \n\r\t,;:\"\'`{}[]()<>|';
-                  let l = at - 1;
-                  while (l >= 0 && !leftChars.includes(raw[l])) l -= 1;
-                  let r = at + 1;
-                  while (r < raw.length && !leftChars.includes(raw[r])) r += 1;
-                  const candidate = raw.slice(l + 1, r).trim();
-                  if (candidate) body = { email: candidate };
-                }
-              }
-              else {
-                console.error('[Forgot Password POST] Invalid JSON body and could not parse as urlencoded:', raw, parseErr && parseErr.message ? parseErr.message : parseErr);
-                return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
-              }
-            }
+          if (m && m[1]) return decodeURIComponent(m[1]);
+
+          // 3) {email:someone@domain} without quotes
+          const m2 = /\{\s*email\s*:\s*([^\}\s]+)\s*\}/i.exec(raw);
+          if (m2 && m2[1]) return decodeURIComponent(m2[1]);
+
+          // 4) any email-like substring
+          const emailMatch = raw.match(/([A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,})/i);
+          if (emailMatch && emailMatch[1]) return emailMatch[1];
+
+          // 5) permissive: find '@' and expand outward to capture token
+          const at = raw.indexOf('@');
+          if (at !== -1) {
+            const leftChars = ' \n\r\t,;:\"\'`{}[]()<>|';
+            let l = at - 1;
+            while (l >= 0 && !leftChars.includes(raw[l])) l -= 1;
+            let r = at + 1;
+            while (r < raw.length && !leftChars.includes(raw[r])) r += 1;
+            const candidate = raw.slice(l + 1, r).trim();
+            if (candidate) return candidate;
           }
+
+          return null;
+        } catch (e) {
+          return null;
         }
-        }
-      } catch (e) {
-        console.error('[Forgot Password POST] Invalid JSON body and fallback parsing failed:', raw, e);
+      };
+
+      const extracted = tryExtractEmail();
+      if (extracted) body = { email: extracted };
+      else {
+        console.error('[Forgot Password POST] Invalid JSON body and could not parse as urlencoded:', raw, parseErr && parseErr.message ? parseErr.message : parseErr);
         return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
       }
     }
