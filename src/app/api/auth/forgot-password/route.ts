@@ -16,7 +16,16 @@ function maskEmail(email: string): string {
 
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json();
+    // Read raw body first to capture malformed JSON in logs if present
+    const raw = await req.text();
+    let body: any;
+    try {
+      body = raw ? JSON.parse(raw) : {};
+    } catch (parseErr) {
+      console.error('[Forgot Password POST] Invalid JSON body:', raw);
+      return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
+    }
+
     const parsed = schema.safeParse(body);
     if (!parsed.success) {
       return NextResponse.json({ error: 'Invalid email' }, { status: 400 });
