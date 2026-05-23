@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { getSupabaseBrowserClient } from '@/lib/supabase/client';
 import { Loader2, Mail, ArrowLeft } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -15,14 +16,29 @@ export default function ForgotPasswordPage() {
     e.preventDefault();
     setLoading(true);
     try {
-      const res = await fetch('/api/auth/forgot-password', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email }),
-      });
+      // Try server endpoint first
+      try {
+        const res = await fetch('/api/auth/forgot-password', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email }),
+        });
 
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Could not process request');
+        const data = await res.json();
+        if (res.ok) {
+          toast.success("We've sent a password reset link to your email");
+          router.push(`/auth/signin?reset=true`);
+          return;
+        }
+        // fallthrough to client-side supabase call
+      } catch (err) {
+        // server failed — attempt client-side Supabase fallback
+      }
+
+      // Fallback: call Supabase directly from the browser
+      const supabase = getSupabaseBrowserClient();
+      const { error } = await supabase.auth.resetPasswordForEmail(email.trim().toLowerCase());
+      if (error) throw error;
 
       toast.success("We've sent a password reset link to your email");
       router.push(`/auth/signin?reset=true`);
