@@ -24,8 +24,8 @@ export default function ForgotPasswordPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Could not process request');
 
-      toast.success("We've sent a 6-digit verification code to your email");
-      router.push(`/auth/verify-otp?email=${encodeURIComponent(email.trim().toLowerCase())}`);
+      toast.success("We've sent a password reset link to your email");
+      router.push(`/auth/signin?reset=true`);
     } catch {
       toast.error('Could not process request');
     } finally {
@@ -67,7 +67,7 @@ export default function ForgotPasswordPage() {
               disabled={loading}
               className="w-full py-2.5 text-sm font-sans font-medium rounded-lg bg-[var(--text-primary)] text-[var(--bg-primary)] hover:bg-[var(--accent)] disabled:opacity-60 transition-colors flex items-center justify-center gap-2"
             >
-              {loading ? <><Loader2 size={15} className="animate-spin" /> Sending…</> : 'Send verification code'}
+              {loading ? <><Loader2 size={15} className="animate-spin" /> Sending…</> : 'Send reset link'}
             </button>
 
             <p className="text-center text-sm font-sans text-[var(--text-muted)] mt-4">
