@@ -8,7 +8,6 @@ import type { Metadata } from 'next';
 import { ThemeProvider } from 'next-themes';
 import { Toaster } from 'react-hot-toast';
 import Script from 'next/script';
-import SessionWrapper from '@/components/auth/SessionWrapper';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
 import AIChatWidget from '@/components/ai/AIChatWidget';
@@ -26,7 +25,7 @@ export const metadata: Metadata = {
   openGraph: {
     type: 'website',
     locale: 'en_US',
-    url: process.env.NEXTAUTH_URL,
+    url: process.env.NEXT_PUBLIC_SITE_URL || 'https://blogs.oliprashant.com.np',
     siteName: 'Philosophia',
     images: [{ url: '/og-default.jpg', width: 1200, height: 630, alt: 'Philosophia' }],
   },
@@ -64,32 +63,24 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           </>
         )}
         <ThemeProvider attribute="class" defaultTheme="light" enableSystem>
-          <SessionWrapper>
-          
-              <div className="flex flex-col min-h-screen bg-[var(--bg-primary)] text-[var(--text-primary)]">
-                <Header />
-                <main className="flex-1">
-                  {children}
-                </main>
-                <Footer />
-              </div>
-              {/* Floating AI chat widget – available on all pages */}
-              <AIChatWidget />
-              {/* Toast notifications */}
-              <Toaster
-                position="bottom-right"
-                toastOptions={{
-                  style: {
-                    fontFamily: 'var(--font-dm-sans)',
-                    background: 'var(--bg-secondary)',
-                    color: 'var(--text-primary)',
-                    border: '1px solid var(--border)',
-                    borderRadius: '4px',
-                  },
-                }}
-              />
-           
-          </SessionWrapper>
+          <div className="flex min-h-screen flex-col bg-[var(--bg-primary)] text-[var(--text-primary)]">
+            <Header />
+            <main className="flex-1">{children}</main>
+            <Footer />
+          </div>
+          <AIChatWidget />
+          <Toaster
+            position="bottom-right"
+            toastOptions={{
+              style: {
+                fontFamily: 'var(--font-dm-sans)',
+                background: 'var(--bg-secondary)',
+                color: 'var(--text-primary)',
+                border: '1px solid var(--border)',
+                borderRadius: '4px',
+              },
+            }}
+          />
         </ThemeProvider>
       </body>
     </html>

@@ -9,6 +9,7 @@ import HotTopics from '@/components/blog/HotTopics';
 import CategoryStrip from '@/components/home/CategoryStrip';
 import HumourSection from '@/components/home/HumourSection';
 import NewsletterSection from '@/components/home/NewsletterSection';
+import ProtectedAccess from '@/components/home/ProtectedAccess';
 import Clock from '@/components/ui/Clock';
 import { PostSummary } from '@/types';
 
@@ -139,6 +140,8 @@ export default async function HomePage() {
         {hotTopics.length > 0 && (
           <HotTopics posts={normalizePosts(hotTopics)} />
         )}
+
+        <ProtectedAccess />
 
         {/* ── Recent posts grid ── */}
         <section>

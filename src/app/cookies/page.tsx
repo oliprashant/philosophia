@@ -35,8 +35,8 @@ export default function CookiePolicyPage() {
             1. What Cookies We Use
           </h2>
           <p className="mt-4">
-            Philosophia uses cookies only for authentication and session management through NextAuth.
-            These cookies help keep you signed in and secure your session while you use the site.
+            Philosophia uses cookies only for Firebase authentication state and basic site preferences.
+            These cookies help keep you signed in and keep your browsing experience consistent.
           </p>
         </section>
 

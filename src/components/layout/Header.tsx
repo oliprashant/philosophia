@@ -1,18 +1,23 @@
-'use client';
+"use client";
 // src/components/layout/Header.tsx
-// Responsive header with:
-// - Brand logo + tagline
-// - Category dropdown navigation
-// - Search link
-// - Dark mode toggle
-// - Auth state (sign in button / user menu)
 
-import { useState, useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { useSession, signOut } from 'next-auth/react';
 import { useTheme } from 'next-themes';
-import { Menu, X, Search, Sun, Moon, ChevronDown, User, BookOpen, Settings, LogOut, PenLine } from 'lucide-react';
+import {
+  BookOpen,
+  ChevronDown,
+  LogOut,
+  Menu,
+  Moon,
+  Search,
+  Settings,
+  Sun,
+  User,
+  X,
+} from 'lucide-react';
+import { useAuth } from '@/hooks/useAuth';
 
 const NAV_CATEGORIES = [
   { name: 'Ethics', slug: 'ethics' },
@@ -30,14 +35,12 @@ const NAV_GENRES = [
 ];
 
 export default function Header() {
-  const { data: session } = useSession();
+  const { user, loading, signInWithGoogle, logOut } = useAuth();
   const { resolvedTheme, setTheme } = useTheme();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const [catOpen, setCatOpen] = useState(false);
-  const [genreOpen, setGenreOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
-  const [mounted, setMounted] = useState(false); // 👈 add this
   const catRef = useRef<HTMLDivElement>(null);
   const userMenuRef = useRef<HTMLDivElement>(null);
 
@@ -57,18 +60,12 @@ export default function Header() {
 
       if (!insideNav && !insideUserMenu) {
         setCatOpen(false);
-        setGenreOpen(false);
         setUserMenuOpen(false);
       }
     };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
   }, []);
-
-  useEffect(() => setMounted(true), []); // 👈 add here
-
-  const isAdmin = (session?.user as any)?.role === 'ADMIN';
-  const isAuthor = (session?.user as any)?.role === 'AUTHOR' || isAdmin;
 
   return (
     <header
@@ -97,7 +94,7 @@ export default function Header() {
             {/* Categories dropdown */}
             <div className="relative">
               <button
-                onClick={() => { setCatOpen(!catOpen); setGenreOpen(false); }}
+                onClick={() => setCatOpen(!catOpen)}
                 className="flex items-center gap-1 text-sm font-sans text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors"
                 aria-expanded={catOpen}
               >
@@ -113,31 +110,6 @@ export default function Header() {
                       onClick={() => setCatOpen(false)}
                     >
                       {cat.name}
-                    </Link>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* Genre dropdown */}
-            <div className="relative">
-              <button
-                onClick={() => { setGenreOpen(!genreOpen); setCatOpen(false); }}
-                className="flex items-center gap-1 text-sm font-sans text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors"
-                aria-expanded={genreOpen}
-              >
-                Forms <ChevronDown size={14} className={`transition-transform ${genreOpen ? 'rotate-180' : ''}`} />
-              </button>
-              {genreOpen && (
-                <div className="absolute top-full left-0 mt-2 w-44 bg-[var(--bg-primary)] border border-[var(--border)] rounded-sm shadow-card py-1 animate-slide-down">
-                  {NAV_GENRES.map(g => (
-                    <Link
-                      key={g.slug}
-                      href={`/blog?genre=${g.slug}`}
-                      className="block px-4 py-2 text-sm font-sans text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)] hover:text-[var(--accent)] transition-colors"
-                      onClick={() => setGenreOpen(false)}
-                    >
-                      {g.name}
                     </Link>
                   ))}
                 </div>
@@ -169,27 +141,28 @@ export default function Header() {
               aria-label="Toggle theme"
               className="p-2 text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors"
             >
-             {mounted ? (resolvedTheme === 'dark' ? <Sun size={18} /> : <Moon size={18} />) : <Sun size={18} />}            </button>
+             {resolvedTheme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
+            </button>
 
             {/* Auth */}
-            {session ? (
+            {loading ? null : user ? (
               <div className="relative" ref={userMenuRef}>
                 <button
                   onClick={() => setUserMenuOpen(!userMenuOpen)}
                   className="flex items-center gap-2 focus-ring rounded-full"
                   aria-label="User menu"
                 >
-                  {session.user?.image ? (
+                  {user.photoURL ? (
                     <Image
-                      src={session.user.image}
-                      alt={session.user.name ?? 'User'}
+                      src={user.photoURL}
+                      alt={user.displayName ?? 'User'}
                       width={32}
                       height={32}
                       className="rounded-full border border-[var(--border)]"
                     />
                   ) : (
                     <div className="w-8 h-8 rounded-full bg-[var(--accent)] text-white flex items-center justify-center text-xs font-sans font-medium">
-                      {session.user?.name?.[0]?.toUpperCase() ?? 'U'}
+                      {user.displayName?.[0]?.toUpperCase() ?? 'U'}
                     </div>
                   )}
                 </button>
@@ -197,8 +170,8 @@ export default function Header() {
                 {userMenuOpen && (
                   <div className="absolute right-0 top-full mt-2 w-52 bg-[var(--bg-primary)] border border-[var(--border)] rounded-sm shadow-card py-1 animate-slide-down z-50">
                     <div className="px-4 py-2 border-b border-[var(--border)]">
-                      <p className="text-sm font-medium truncate">{session.user?.name}</p>
-                      <p className="text-xs text-[var(--text-faint)] truncate">{session.user?.email}</p>
+                      <p className="text-sm font-medium truncate">{user.displayName || 'Google user'}</p>
+                      <p className="text-xs text-[var(--text-faint)] truncate">{user.email}</p>
                     </div>
                     <Link
                       href="/profile"
@@ -214,18 +187,18 @@ export default function Header() {
                     >
                       <BookOpen size={14} /> Saved Posts
                     </Link>
-                    {isAuthor && (
-                      <Link href="/admin/editor" className="flex items-center gap-2 px-4 py-2 text-sm font-sans hover:bg-[var(--bg-secondary)] transition-colors" onClick={() => setUserMenuOpen(false)}>
-                        <PenLine size={14} /> Write
-                      </Link>
-                    )}
-                    {isAdmin && (
-                      <Link href="/admin/dashboard" className="flex items-center gap-2 px-4 py-2 text-sm font-sans hover:bg-[var(--bg-secondary)] transition-colors" onClick={() => setUserMenuOpen(false)}>
-                        <Settings size={14} /> Admin
-                      </Link>
-                    )}
+                    <Link href="/admin" className="flex items-center gap-2 px-4 py-2 text-sm font-sans hover:bg-[var(--bg-secondary)] transition-colors" onClick={() => setUserMenuOpen(false)}>
+                      <Settings size={14} /> Dashboard
+                    </Link>
                     <button
-                      onClick={() => signOut()}
+                      onClick={async () => {
+                        setUserMenuOpen(false);
+                        try {
+                          await logOut();
+                        } catch (error) {
+                          console.error('Sign out failed:', error);
+                        }
+                      }}
                       className="w-full flex items-center gap-2 px-4 py-2 text-sm font-sans text-red-600 hover:bg-red-50 dark:hover:bg-red-950 transition-colors"
                     >
                       <LogOut size={14} /> Sign Out
@@ -234,12 +207,19 @@ export default function Header() {
                 )}
               </div>
             ) : (
-              <Link
-                href="/auth/signin"
+              <button
+                type="button"
+                onClick={async () => {
+                  try {
+                    await signInWithGoogle();
+                  } catch (error) {
+                    console.error('Google sign-in failed:', error);
+                  }
+                }}
                 className="hidden sm:inline-flex items-center px-4 py-1.5 text-sm font-sans font-medium text-[var(--bg-primary)] bg-[var(--text-primary)] hover:bg-[var(--accent)] transition-colors rounded-sm"
               >
-                Sign In
-              </Link>
+                Sign in with Google
+              </button>
             )}
 
             {/* Mobile hamburger */}
@@ -265,22 +245,17 @@ export default function Header() {
               </Link>
             ))}
             <div className="h-px bg-[var(--border)] my-2" />
-            <p className="text-xs font-sans font-medium uppercase tracking-widest text-[var(--text-faint)] px-2 py-1">Forms</p>
-            {NAV_GENRES.map(g => (
-              <Link key={g.slug} href={`/blog?genre=${g.slug}`} className="block px-2 py-2 text-sm font-sans text-[var(--text-secondary)] hover:text-[var(--accent)]" onClick={() => setMobileOpen(false)}>
-                {g.name}
-              </Link>
-            ))}
-            <div className="h-px bg-[var(--border)] my-2" />
             <Link href="/about" className="block px-2 py-2 text-sm font-sans" onClick={() => setMobileOpen(false)}>About</Link>
-            {session && (
+            {user && (
               <>
                 <Link href="/profile" className="block px-2 py-2 text-sm font-sans" onClick={() => setMobileOpen(false)}>Profile</Link>
-                <Link href="/profile?tab=saved" className="block px-2 py-2 text-sm font-sans" onClick={() => setMobileOpen(false)}>Saved Posts</Link>
+                <Link href="/admin" className="block px-2 py-2 text-sm font-sans" onClick={() => setMobileOpen(false)}>Dashboard</Link>
               </>
             )}
-            {!session && (
-              <Link href="/auth/signin" className="block px-2 py-2 text-sm font-sans font-medium text-[var(--accent)]" onClick={() => setMobileOpen(false)}>Sign In</Link>
+            {!user && (
+              <button type="button" onClick={() => void signInWithGoogle()} className="block px-2 py-2 text-sm font-sans font-medium text-[var(--accent)] text-left">
+                Sign in with Google
+              </button>
             )}
           </nav>
         </div>
