@@ -40,6 +40,8 @@
     "bcryptjs": "^2.4.3",
     "cloudinary": "^2.5.1",
     "date-fns": "^4.1.0",
+    "firebase": "^12.13.0",
+    "firebase-admin": "^13.10.0",
     "framer-motion": "^11.15.0",
     "groq-sdk": "^1.1.1",
     "lucide-react": "^0.468.0",

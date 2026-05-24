@@ -5,11 +5,11 @@
 import NextAuth from 'next-auth';
 import { PrismaAdapter } from '@auth/prisma-adapter';
 import GoogleProvider from 'next-auth/providers/google';
-import GitHubProvider from 'next-auth/providers/github'; 
+import GitHubProvider from 'next-auth/providers/github';
 import CredentialsProvider from 'next-auth/providers/credentials';
-import bcrypt from 'bcryptjs';
 import { prisma } from './prisma';
 import type { NextAuthConfig } from 'next-auth';
+import { exchangeFirebaseIdToken } from './firebase-auth';
 
 export const authConfig: NextAuthConfig = {
   adapter: PrismaAdapter(prisma),
@@ -24,53 +24,60 @@ export const authConfig: NextAuthConfig = {
     strategy: 'jwt', // required for credentials provider
   },
 
-  providers: [
-    // ── Google OAuth ──────────────────────────────────────────────────────────
-    GoogleProvider({
-      clientId: process.env.GOOGLE_CLIENT_ID!,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
-      authorization: { params: { prompt: 'consent', access_type: 'offline', response_type: 'code' } },
-    }),
+  providers: (() => {
+    const list: any[] = [];
 
-     // ── GitHub OAuth ──────────────────────────────  ← add this block
-    GitHubProvider({
-      clientId: process.env.GITHUB_CLIENT_ID!,
-      clientSecret: process.env.GITHUB_CLIENT_SECRET!,
-    }),
+    // Register Google only when credentials are provided
+    if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
+      list.push(
+        GoogleProvider({
+          clientId: process.env.GOOGLE_CLIENT_ID,
+          clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+          authorization: { params: { prompt: 'consent', access_type: 'offline', response_type: 'code' } },
+        })
+      );
+    }
 
-    // ── Credentials (email + password) ────────────────────────────────────────
-    CredentialsProvider({
-      name: 'credentials',
-      credentials: {
-        email: { label: 'Email', type: 'email' },
-        password: { label: 'Password', type: 'password' },
-      },
-      async authorize(credentials) {
-        if (!credentials?.email || !credentials?.password) return null;
+    // Register GitHub only when credentials are provided
+    if (process.env.GITHUB_CLIENT_ID && process.env.GITHUB_CLIENT_SECRET) {
+      list.push(
+        GitHubProvider({
+          clientId: process.env.GITHUB_CLIENT_ID,
+          clientSecret: process.env.GITHUB_CLIENT_SECRET,
+        })
+      );
+    }
 
-        const user = await prisma.user.findUnique({
-          where: { email: credentials.email as string },
-        });
+    // Always include Credentials provider
+    list.push(
+      CredentialsProvider({
+        id: 'firebase',
+        name: 'Firebase ID Token',
+        credentials: {
+          idToken: { label: 'Firebase ID Token', type: 'text' },
+        },
+        async authorize(credentials) {
+          const idToken = credentials?.idToken?.toString();
 
-        if (!user || !user.password) return null;
+          if (!idToken) return null;
 
-        const passwordValid = await bcrypt.compare(
-          credentials.password as string,
-          user.password
-        );
+          try {
+            const exchangeResult = await exchangeFirebaseIdToken(idToken);
 
-        if (!passwordValid) return null;
+            if ('status' in exchangeResult) {
+              throw new Error(exchangeResult.message);
+            }
 
-        return {
-          id: user.id,
-          email: user.email,
-          name: user.name,
-          image: user.image,
-          role: user.role,
-        };
-      },
-    }),
-  ],
+            return exchangeResult.user;
+          } catch (error) {
+            throw new Error((error as { message?: string })?.message || 'Unable to verify the Firebase ID token.');
+          }
+        },
+      })
+    );
+
+    return list;
+  })(),
 
   callbacks: {
     // Attach role + id to the JWT token
