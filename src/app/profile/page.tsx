@@ -1,11 +1,12 @@
 'use client';
 
 import Image from 'next/image';
+import Link from 'next/link';
 import { Loader2, Shield, User, Mail } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 
 export default function ProfilePage() {
-  const { user, loading, signInWithGoogle, logOut } = useAuth();
+  const { user, loading, logOut } = useAuth();
 
   if (loading) {
     return (
@@ -27,15 +28,14 @@ export default function ProfilePage() {
             <h1 className="text-2xl font-semibold">Profile</h1>
           </div>
           <p className="text-sm text-[var(--text-muted)]">
-            Sign in with Google to see your local profile information.
+            Sign in to load your unified database profile.
           </p>
-          <button
-            type="button"
-            onClick={() => void signInWithGoogle()}
-            className="rounded-sm bg-[var(--text-primary)] px-4 py-2.5 text-sm font-medium text-[var(--bg-primary)] transition-colors hover:bg-[var(--accent)]"
+          <Link
+            href="/auth/signin"
+            className="inline-flex rounded-sm bg-[var(--text-primary)] px-4 py-2.5 text-sm font-medium text-[var(--bg-primary)] transition-colors hover:bg-[var(--accent)]"
           >
-            Sign in with Google
-          </button>
+            Sign in
+          </Link>
         </div>
       </div>
     );
@@ -45,16 +45,16 @@ export default function ProfilePage() {
     <div className="max-w-4xl mx-auto px-4 py-16 space-y-6">
       <div className="rounded border border-[var(--border)] bg-[var(--bg-secondary)] p-6 space-y-4">
         <div className="flex items-center gap-3">
-          {user.photoURL ? (
-            <Image src={user.photoURL} alt={user.displayName || 'User'} width={56} height={56} className="h-14 w-14 rounded-full object-cover" />
+          {(user.image || user.photoURL) ? (
+            <Image src={user.image || user.photoURL || ''} alt={user.name || user.displayName || 'User'} width={56} height={56} className="h-14 w-14 rounded-full object-cover" />
           ) : (
             <div className="flex h-14 w-14 items-center justify-center rounded-full bg-[var(--bg-primary)] text-lg font-semibold text-[var(--text-primary)]">
-              {(user.displayName || user.email || 'U').slice(0, 1).toUpperCase()}
+              {(user.name || user.displayName || user.email || 'U').slice(0, 1).toUpperCase()}
             </div>
           )}
           <div>
-            <h1 className="text-2xl font-semibold text-[var(--text-primary)]">{user.displayName || 'Google user'}</h1>
-            <p className="text-sm text-[var(--text-muted)]">Client-side Firebase profile</p>
+            <h1 className="text-2xl font-semibold text-[var(--text-primary)]">{user.name || user.displayName || 'Member'}</h1>
+            <p className="text-sm text-[var(--text-muted)]">Unified database profile</p>
           </div>
         </div>
 
@@ -63,7 +63,7 @@ export default function ProfilePage() {
             <User className="h-4 w-4 text-[var(--accent)]" />
             <div>
               <p className="text-xs uppercase tracking-widest text-[var(--text-faint)]">Name</p>
-              <p className="text-sm text-[var(--text-primary)]">{user.displayName || '—'}</p>
+              <p className="text-sm text-[var(--text-primary)]">{user.name || user.displayName || '—'}</p>
             </div>
           </div>
           <div className="rounded border border-[var(--border)] bg-[var(--bg-primary)] p-4 flex items-center gap-3">
@@ -76,7 +76,7 @@ export default function ProfilePage() {
         </div>
 
         <div className="rounded border border-dashed border-[var(--border)] p-4 text-sm text-[var(--text-muted)]">
-          This profile page now uses Firebase client auth only. No server session is involved.
+          This profile page now reflects the unified database user created from either auth flow.
         </div>
 
         <button

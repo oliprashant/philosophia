@@ -1,11 +1,12 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { useAuth } from '@/hooks/useAuth';
 
 export default function ProfileDebugPage() {
   const router = useRouter();
-  const { user, loading, signInWithGoogle } = useAuth();
+  const { user, loading } = useAuth();
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-10 space-y-4">
@@ -19,13 +20,12 @@ export default function ProfileDebugPage() {
         </pre>
 
         <div className="flex gap-3">
-          <button
-            type="button"
-            onClick={() => void signInWithGoogle()}
+          <Link
+            href="/auth/signin"
             className="rounded-sm bg-[var(--text-primary)] px-4 py-2 text-[var(--bg-primary)]"
           >
-            Sign in with Google
-          </button>
+            Sign in
+          </Link>
 
           <button
             type="button"

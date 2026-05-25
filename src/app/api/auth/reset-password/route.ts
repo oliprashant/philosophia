@@ -30,14 +30,14 @@ export async function POST(req: NextRequest) {
     const email = authData.user.email.toLowerCase();
     const user = await prisma.user.findUnique({
       where: { email },
-      select: { id: true, password: true },
+      select: { id: true, password: true, passwordHash: true },
     });
 
     if (!user) {
       return NextResponse.json({ error: 'Account not found for this recovery link' }, { status: 404 });
     }
 
-    if (!user.password) {
+    if (!user.password && !user.passwordHash) {
       return NextResponse.json(
         { error: 'This account uses Google sign-in and does not support password reset.' },
         { status: 400 }
@@ -90,7 +90,7 @@ export async function POST(req: NextRequest) {
     const passwordHash = await bcrypt.hash(newPassword, 12);
     await prisma.user.update({
       where: { id: user.id },
-      data: { password: passwordHash },
+      data: { password: passwordHash, passwordHash },
     });
 
     return NextResponse.json({ success: true });

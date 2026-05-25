@@ -219,19 +219,12 @@ export default function Header() {
                 )}
               </div>
             ) : (
-              <button
-                type="button"
-                onClick={async () => {
-                  try {
-                    await signInWithGoogle();
-                  } catch (error) {
-                    console.error('Google sign-in failed:', error);
-                  }
-                }}
+              <Link
+                href="/auth/signin"
                 className="hidden sm:inline-flex items-center px-4 py-1.5 text-sm font-sans font-medium text-[var(--bg-primary)] bg-[var(--text-primary)] hover:bg-[var(--accent)] transition-colors rounded-sm"
               >
-                Sign in with Google
-              </button>
+                Sign in
+              </Link>
             )}
 
             {/* Mobile hamburger */}
@@ -265,9 +258,9 @@ export default function Header() {
               </>
             )}
             {!user && (
-              <button type="button" onClick={() => void signInWithGoogle()} className="block px-2 py-2 text-sm font-sans font-medium text-[var(--accent)] text-left">
-                Sign in with Google
-              </button>
+              <Link href="/auth/signin" className="block px-2 py-2 text-sm font-sans font-medium text-[var(--accent)] text-left">
+                Sign in
+              </Link>
             )}
           </nav>
         </div>

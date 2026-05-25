@@ -1,6 +1,7 @@
 "use client";
 
 import Image from 'next/image';
+import Link from 'next/link';
 import { Loader2 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 
@@ -28,13 +29,12 @@ export default function ProtectedAccess() {
           </p>
         </div>
 
-        <button
-          type="button"
-          onClick={() => void signInWithGoogle()}
-          className="rounded-sm bg-[var(--text-primary)] px-4 py-2.5 text-sm font-medium text-[var(--bg-primary)] transition-colors hover:bg-[var(--accent)]"
+        <Link
+          href="/auth/signin"
+          className="inline-flex rounded-sm bg-[var(--text-primary)] px-4 py-2.5 text-sm font-medium text-[var(--bg-primary)] transition-colors hover:bg-[var(--accent)]"
         >
-          Sign in with Google
-        </button>
+          Sign in
+        </Link>
       </section>
     );
   }

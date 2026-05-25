@@ -29,13 +29,12 @@ export default function AdminPage() {
           <p className="text-sm text-[var(--text-muted)]">
             Sign in with Google to view the protected admin area.
           </p>
-          <button
-            type="button"
-            onClick={() => void signInWithGoogle()}
-            className="rounded-sm bg-[var(--text-primary)] px-4 py-2.5 text-sm font-medium text-[var(--bg-primary)] transition-colors hover:bg-[var(--accent)]"
+          <Link
+            href="/auth/signin"
+            className="inline-flex rounded-sm bg-[var(--text-primary)] px-4 py-2.5 text-sm font-medium text-[var(--bg-primary)] transition-colors hover:bg-[var(--accent)]"
           >
-            Sign in with Google
-          </button>
+            Sign in
+          </Link>
         </div>
         <Link href="/" className="text-sm text-[var(--accent)] hover:underline">
           Return home

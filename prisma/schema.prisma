@@ -14,12 +14,14 @@ datasource db {
 model User {
   id            String    @id @default(cuid())
   name          String?
-  email         String?   @unique
-  emailVerified DateTime?
+  email         String    @unique
+  emailVerified Boolean   @default(false)
   image         String?
   bio           String?
   role          Role      @default(READER)
-  password      String?   // hashed, only for credentials provider
+  password      String?   // legacy hashed password field
+  passwordHash  String?   // native email/password users
+  firebaseUid   String?   @unique
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
