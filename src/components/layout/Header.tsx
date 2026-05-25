@@ -37,12 +37,17 @@ const NAV_GENRES = [
 export default function Header() {
   const { user, loading, signInWithGoogle, logOut } = useAuth();
   const { resolvedTheme, setTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const [catOpen, setCatOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const catRef = useRef<HTMLDivElement>(null);
   const userMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Detect scroll for shadow
   useEffect(() => {
@@ -136,13 +141,20 @@ export default function Header() {
             </Link>
 
             {/* Theme toggle */}
-            <button
-              onClick={() => setTheme(resolvedTheme === 'dark' ? 'light' : 'dark')}
-              aria-label="Toggle theme"
-              className="p-2 text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors"
-            >
-             {resolvedTheme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
-            </button>
+            {mounted ? (
+              <button
+                onClick={() => setTheme(resolvedTheme === 'dark' ? 'light' : 'dark')}
+                aria-label="Toggle theme"
+                className="p-2 text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors"
+              >
+                {resolvedTheme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
+              </button>
+            ) : (
+              <span
+                className="inline-flex h-9 w-9 items-center justify-center"
+                aria-hidden="true"
+              />
+            )}
 
             {/* Auth */}
             {loading ? null : user ? (
