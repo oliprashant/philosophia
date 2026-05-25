@@ -19,9 +19,43 @@ type FirebaseClientConfig = {
   appId: string;
 };
 
+function resolveAuthDomain(authDomain: string, projectId: string): string {
+  const normalizedAuthDomain = authDomain.trim().toLowerCase();
+  const normalizedProjectId = projectId.trim();
+
+  if (!normalizedProjectId) {
+    return authDomain;
+  }
+
+  const firebaseHostedDomain = `${normalizedProjectId}.firebaseapp.com`;
+
+  if (!normalizedAuthDomain) {
+    return firebaseHostedDomain;
+  }
+
+  const isFirebaseHosted =
+    normalizedAuthDomain.endsWith('.firebaseapp.com') ||
+    normalizedAuthDomain.endsWith('.web.app');
+
+  if (isFirebaseHosted) {
+    return authDomain;
+  }
+
+  // If authDomain is set to the current custom site domain (common on Vercel),
+  // Firebase's /__/auth/handler endpoint is missing and Google sign-in fails with 404.
+  if (typeof window !== 'undefined' && normalizedAuthDomain === window.location.hostname.toLowerCase()) {
+    return firebaseHostedDomain;
+  }
+
+  return authDomain;
+}
+
 const firebaseConfig: FirebaseClientConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY ?? '',
-  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN ?? '',
+  authDomain: resolveAuthDomain(
+    process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN ?? '',
+    process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID ?? ''
+  ),
   projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID ?? '',
   storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET ?? '',
   messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID ?? '',
