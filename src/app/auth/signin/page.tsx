@@ -2,103 +2,115 @@
 
 import Link from 'next/link';
 import { useState } from 'react';
-import { Chrome, Facebook, Lock, Mail } from 'lucide-react';
+import { Loader2, Mail, Lock, Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 
 export default function SignInPage() {
   const { signInWithGoogle } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPwd, setShowPwd] = useState(false);
+  const [loading, setLoading] = useState<string | null>(null);
 
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
   };
 
   return (
-    <div className="min-h-screen bg-[#faf3e8] px-4 py-10 text-[#2f2213]">
-      <div className="mx-auto flex min-h-[calc(100vh-5rem)] w-full max-w-[420px] flex-col items-center justify-start pt-2">
-        <div className="mb-8 text-center">
+    <div className="min-h-screen flex items-center justify-center px-4 py-16 bg-[var(--bg-primary)]">
+      <div className="w-full max-w-md">
+        <div className="text-center mb-10">
           <Link href="/" className="inline-block">
-            <h1 className="text-[46px] leading-none font-semibold tracking-tight text-[#1f140b]" style={{ fontFamily: 'var(--font-cormorant)' }}>
+            <h1 className="text-4xl font-bold text-[var(--text-primary)]" style={{ fontFamily: 'var(--font-cormorant)' }}>
               Philosophia
             </h1>
           </Link>
-          <p className="mt-2 text-[15px] text-[#7f5f44]" style={{ fontFamily: 'var(--font-cormorant)' }}>
-            Sign in to join the dialogue
-          </p>
+          <p className="text-sm text-[var(--text-faint)] mt-2 font-sans">Sign in to join the dialogue</p>
         </div>
 
-        <div className="w-full border border-[#e0c7a0] bg-[#fbf6ee] px-5 py-6 shadow-[0_0_0_1px_rgba(255,255,255,0.45)_inset]">
-          <div className="space-y-3">
+        <div className="border border-[var(--border)] p-8 bg-[var(--bg-primary)]">
+          <div className="space-y-3 mb-6">
             <button
               type="button"
-              onClick={() => void signInWithGoogle()}
-              className="flex w-full items-center justify-center gap-3 border border-[#cfcbd6] bg-white px-4 py-2.5 text-[15px] font-medium text-[#2d3550] transition-colors hover:bg-[#f7f8fb]"
+              onClick={async () => {
+                setLoading('google');
+                try {
+                  await signInWithGoogle();
+                } finally {
+                  setLoading(null);
+                }
+              }}
+              disabled={!!loading}
+              className="w-full flex items-center justify-center gap-3 px-4 py-2.5 text-sm font-sans font-medium border rounded-sm transition-colors disabled:opacity-60 bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
             >
-              <Chrome className="h-5 w-5 text-[#4285F4]" />
+              {loading === 'google' ? <Loader2 size={16} className="animate-spin" /> : <span className="text-[#4285F4] text-lg font-bold">G</span>}
               Continue with Google
             </button>
 
             <button
               type="button"
-              className="flex w-full items-center justify-center gap-3 bg-[#1877f2] px-4 py-2.5 text-[15px] font-medium text-white transition-colors hover:bg-[#1569d6]"
+              disabled
+              className="w-full flex items-center justify-center gap-3 px-4 py-2.5 text-sm font-sans font-medium border rounded-sm transition-colors disabled:opacity-60 bg-[#1877F2] text-white hover:bg-[#166FE5]"
             >
-              <Facebook className="h-5 w-5" />
+              <span className="text-lg font-bold">f</span>
               Continue with Facebook
             </button>
           </div>
 
-          <div className="my-5 flex items-center gap-3 text-center text-[13px] text-[#8d6c4d]">
-            <span className="h-px flex-1 bg-[#e0c7a0]" />
-            <span>or with email</span>
-            <span className="h-px flex-1 bg-[#e0c7a0]" />
+          <div className="relative my-6">
+            <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-[var(--border)]" /></div>
+            <div className="relative flex justify-center"><span className="px-3 text-xs text-[var(--text-faint)] bg-[var(--bg-primary)] font-sans">or with email</span></div>
           </div>
 
-          <form className="space-y-4" onSubmit={handleSubmit}>
-            <label className="block text-[13px] font-medium text-[#3c2d1f]">
-              Email
-              <div className="mt-2 flex items-center border border-[#e0c7a0] bg-[#fbf6ee] px-3 py-2.5 focus-within:border-[#b88952]">
-                <Mail className="h-4 w-4 shrink-0 text-[#ad8a62]" />
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label className="block text-xs font-sans font-medium text-[var(--text-muted)] mb-1.5">Email</label>
+              <div className="relative">
+                <Mail size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-faint)]" />
                 <input
                   type="email"
                   value={email}
                   onChange={event => setEmail(event.target.value)}
+                  required
+                  className="w-full pl-10 pr-4 py-2.5 text-sm font-sans bg-[var(--bg-secondary)] border border-[var(--border)] focus:outline-none focus:border-[var(--accent)] transition-colors"
                   placeholder="you@example.com"
-                  className="ml-3 w-full bg-transparent text-[15px] text-[#2f2213] placeholder:text-[#bca68a] outline-none"
                 />
-                <span className="ml-3 inline-flex h-5 w-5 items-center justify-center rounded-sm bg-[#1abc9c] text-white">
-                  <Mail className="h-3.5 w-3.5" />
-                </span>
               </div>
-            </label>
+            </div>
 
-            <label className="block text-[13px] font-medium text-[#3c2d1f]">
-              Password
-              <div className="mt-2 flex items-center border border-[#e0c7a0] bg-[#fbf6ee] px-3 py-2.5 focus-within:border-[#b88952]">
-                <Lock className="h-4 w-4 shrink-0 text-[#ad8a62]" />
+            <div>
+              <label className="block text-xs font-sans font-medium text-[var(--text-muted)] mb-1.5">Password</label>
+              <div className="relative">
+                <Lock size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-faint)]" />
                 <input
-                  type="password"
+                  type={showPwd ? 'text' : 'password'}
                   value={password}
                   onChange={event => setPassword(event.target.value)}
+                  required
+                  className="w-full pl-10 pr-10 py-2.5 text-sm font-sans bg-[var(--bg-secondary)] border border-[var(--border)] focus:outline-none focus:border-[var(--accent)] transition-colors"
                   placeholder="••••••••"
-                  className="ml-3 w-full bg-transparent text-[15px] text-[#2f2213] placeholder:text-[#bca68a] outline-none"
                 />
-                <span className="ml-3 text-[#ad8a62]">◔</span>
+                <button
+                  type="button"
+                  onClick={() => setShowPwd(prev => !prev)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--text-faint)]"
+                >
+                  {showPwd ? <EyeOff size={15} /> : <Eye size={15} />}
+                </button>
               </div>
-            </label>
+            </div>
 
             <button
               type="submit"
-              className="w-full bg-[#1f140b] px-4 py-3 text-[15px] font-semibold text-white transition-colors hover:bg-[#2b1c10]"
+              disabled={!!loading}
+              className="w-full py-2.5 text-sm font-sans font-medium bg-[var(--text-primary)] text-[var(--bg-primary)] hover:bg-[var(--accent)] disabled:opacity-60 transition-colors flex items-center justify-center gap-2"
             >
-              Sign In
+              {loading === 'credentials' ? <><Loader2 size={15} className="animate-spin" /> Signing in…</> : 'Sign In'}
             </button>
 
-            <p className="pt-1 text-center text-[14px] text-[#6c5140]">
+            <p className="text-center text-sm font-sans text-[var(--text-muted)] mt-6">
               No account?{' '}
-              <Link href="/auth/register" className="text-[#c14d61] hover:underline">
-                Create one
-              </Link>
+              <Link href="/auth/register" className="text-[var(--accent)] hover:underline">Create one</Link>
             </p>
           </form>
         </div>
