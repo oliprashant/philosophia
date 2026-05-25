@@ -3,6 +3,7 @@
 import Image from 'next/image';
 import { Loader2 } from 'lucide-react';
 import { useState } from 'react';
+import toast from 'react-hot-toast';
 import { useAuth } from '@/hooks/useAuth';
 
 function getFriendlyAuthError(error: unknown) {
@@ -23,9 +24,16 @@ export default function FirebaseSignIn() {
   const handleSignIn = async () => {
     try {
       setMessage(null);
-      await signInWithGoogle();
+      const res = await signInWithGoogle();
+      if (res === null) {
+        // user cancelled popup
+        toast('Google sign-in cancelled');
+        return;
+      }
     } catch (error) {
-      setMessage(getFriendlyAuthError(error));
+      const msg = getFriendlyAuthError(error);
+      setMessage(msg);
+      toast.error(msg);
     }
   };
 
@@ -34,7 +42,9 @@ export default function FirebaseSignIn() {
       setMessage(null);
       await logOut();
     } catch (error) {
-      setMessage(getFriendlyAuthError(error));
+      const msg = getFriendlyAuthError(error);
+      setMessage(msg);
+      toast.error(msg);
     }
   };
 

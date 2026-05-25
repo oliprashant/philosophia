@@ -154,11 +154,25 @@ export function getFirebaseAuth(): Auth | null {
 
 export { FirebaseGoogleAuthProvider as GoogleAuthProvider };
 
-export async function signInWithGoogle(): Promise<UserCredential> {
+export async function signInWithGoogle(): Promise<UserCredential | null> {
   const auth = requireFirebaseAuth();
   const provider = new FirebaseGoogleAuthProvider();
   provider.setCustomParameters({ prompt: 'select_account' });
-  return signInWithPopup(auth, provider);
+
+  try {
+    return await signInWithPopup(auth, provider);
+  } catch (err: unknown) {
+    // Expected: user closed the popup or cancelled the flow.
+    // Don't treat this as an application error — return null so callers can
+    // handle it gracefully without surfacing to global error handlers/Sentry.
+    const e = err as { code?: string };
+    if (e?.code === 'auth/popup-closed-by-user' || e?.code === 'auth/cancelled-popup-request') {
+      return null;
+    }
+
+    // Re-throw anything unexpected so it can be handled/logged upstream.
+    throw err;
+  }
 }
 
 export async function logOut(): Promise<void> {

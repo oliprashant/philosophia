@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useState } from 'react';
 import { Loader2, Mail, Lock, Eye, EyeOff } from 'lucide-react';
+import toast from 'react-hot-toast';
 import { useAuth } from '@/hooks/useAuth';
 
 export default function SignInPage() {
@@ -35,7 +36,15 @@ export default function SignInPage() {
               onClick={async () => {
                 setLoading('google');
                 try {
-                  await signInWithGoogle();
+                  const result = await signInWithGoogle();
+                  if (result === null) {
+                    // User closed the popup or cancelled — show subtle toast
+                    toast('Google sign-in cancelled', { icon: '⚪' });
+                    return;
+                  }
+                } catch (err) {
+                  console.error('Google sign-in failed:', err);
+                  toast.error('Google sign-in failed. Please try again.');
                 } finally {
                   setLoading(null);
                 }

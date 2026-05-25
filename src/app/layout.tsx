@@ -12,6 +12,7 @@ import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
 import AIChatWidget from '@/components/ai/AIChatWidget';
 import './globals.css';
+import SentryClientFilter from '@/components/SentryClientFilter';
 
 export const metadata: Metadata = {
   metadataBase: new URL('https://blogs.oliprashant.com.np'),
@@ -69,6 +70,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <Footer />
           </div>
           <AIChatWidget />
+          <SentryClientFilter />
           <Toaster
             position="bottom-right"
             toastOptions={{
