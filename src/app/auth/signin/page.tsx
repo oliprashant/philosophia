@@ -1,15 +1,24 @@
 'use client';
 
 import Link from 'next/link';
-import { useRouter, useSearchParams } from 'next/navigation';
-import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { useState, useEffect } from 'react';
 import { ArrowRight, Eye, EyeOff, Loader2, Lock, Mail } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useAuth } from '@/hooks/useAuth';
 
 export default function SignInPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
+  const [showReset, setShowReset] = useState(false);
+
+  useEffect(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      setShowReset(params.get('reset') === 'true');
+    } catch (e) {
+      setShowReset(false);
+    }
+  }, []);
   const { signInWithGoogle } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -52,7 +61,7 @@ export default function SignInPage() {
             </h1>
           </Link>
           <p className="mt-2 text-sm text-[var(--text-faint)]">Sign in with email/password or Google</p>
-          {searchParams.get('reset') === 'true' ? (
+          {showReset ? (
             <p className="mt-3 rounded border border-[var(--border)] bg-[var(--bg-secondary)] px-3 py-2 text-xs text-[var(--text-muted)]">
               Your password was reset. Sign in with your new credentials.
             </p>
