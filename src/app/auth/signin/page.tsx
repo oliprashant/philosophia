@@ -1,79 +1,103 @@
 'use client';
 
 import Link from 'next/link';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useState } from 'react';
-import { Loader2, Mail, Lock, Eye, EyeOff } from 'lucide-react';
+import { ArrowRight, Eye, EyeOff, Loader2, Lock, Mail } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useAuth } from '@/hooks/useAuth';
 
 export default function SignInPage() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const { signInWithGoogle } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [showPwd, setShowPwd] = useState(false);
-  const [loading, setLoading] = useState<string | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
+  const [loading, setLoading] = useState<'google' | 'credentials' | null>(null);
 
-  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    setLoading('credentials');
+
+    try {
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || 'Could not sign in');
+      }
+
+      toast.success('Signed in successfully');
+      router.push('/profile');
+      router.refresh();
+    } catch (error: any) {
+      toast.error(error.message || 'Could not sign in');
+    } finally {
+      setLoading(null);
+    }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-4 py-16 bg-[var(--bg-primary)]">
-      <div className="w-full max-w-md">
-        <div className="text-center mb-10">
+    <div className="min-h-screen bg-[var(--bg-primary)] px-4 py-16 text-[var(--text-primary)]">
+      <div className="mx-auto w-full max-w-md">
+        <div className="mb-10 text-center">
           <Link href="/" className="inline-block">
-            <h1 className="text-4xl font-bold text-[var(--text-primary)]" style={{ fontFamily: 'var(--font-cormorant)' }}>
+            <h1 className="text-4xl font-bold" style={{ fontFamily: 'var(--font-cormorant)' }}>
               Philosophia
             </h1>
           </Link>
-          <p className="text-sm text-[var(--text-faint)] mt-2 font-sans">Sign in to join the dialogue</p>
+          <p className="mt-2 text-sm text-[var(--text-faint)]">Sign in with email/password or Google</p>
+          {searchParams.get('reset') === 'true' ? (
+            <p className="mt-3 rounded border border-[var(--border)] bg-[var(--bg-secondary)] px-3 py-2 text-xs text-[var(--text-muted)]">
+              Your password was reset. Sign in with your new credentials.
+            </p>
+          ) : null}
         </div>
 
-        <div className="border border-[var(--border)] p-8 bg-[var(--bg-primary)]">
-          <div className="space-y-3 mb-6">
-            <button
-              type="button"
-              onClick={async () => {
-                setLoading('google');
-                try {
-                  const result = await signInWithGoogle();
-                  if (result === null) {
-                    // User closed the popup or cancelled — show subtle toast
-                    toast('Google sign-in cancelled', { icon: '⚪' });
-                    return;
-                  }
-                } catch (err) {
-                  console.error('Google sign-in failed:', err);
-                  toast.error('Google sign-in failed. Please try again.');
-                } finally {
-                  setLoading(null);
+        <div className="border border-[var(--border)] bg-[var(--bg-secondary)] p-8 shadow-sm">
+          <button
+            type="button"
+            onClick={async () => {
+              setLoading('google');
+              try {
+                const result = await signInWithGoogle();
+                if (result === null) {
+                  toast('Google sign-in cancelled', { icon: '⚪' });
+                  return;
                 }
-              }}
-              disabled={!!loading}
-              className="w-full flex items-center justify-center gap-3 px-4 py-2.5 text-sm font-sans font-medium border rounded-sm transition-colors disabled:opacity-60 bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
-            >
-              {loading === 'google' ? <Loader2 size={16} className="animate-spin" /> : <span className="text-[#4285F4] text-lg font-bold">G</span>}
-              Continue with Google
-            </button>
-
-            <button
-              type="button"
-              disabled
-              className="w-full flex items-center justify-center gap-3 px-4 py-2.5 text-sm font-sans font-medium border rounded-sm transition-colors disabled:opacity-60 bg-[#1877F2] text-white hover:bg-[#166FE5]"
-            >
-              <span className="text-lg font-bold">f</span>
-              Continue with Facebook
-            </button>
-          </div>
+                router.push('/profile');
+                router.refresh();
+              } catch (error) {
+                console.error('Google sign-in failed:', error);
+                toast.error('Google sign-in failed. Please try again.');
+              } finally {
+                setLoading(null);
+              }
+            }}
+            disabled={!!loading}
+            className="mb-6 flex w-full items-center justify-center gap-3 rounded-sm border border-[var(--border)] bg-white px-4 py-2.5 text-sm font-medium text-gray-800 transition-colors hover:bg-gray-50 disabled:opacity-60"
+          >
+            {loading === 'google' ? <Loader2 size={16} className="animate-spin" /> : <span className="text-lg font-bold text-[#4285F4]">G</span>}
+            Sign in with Google
+          </button>
 
           <div className="relative my-6">
-            <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-[var(--border)]" /></div>
-            <div className="relative flex justify-center"><span className="px-3 text-xs text-[var(--text-faint)] bg-[var(--bg-primary)] font-sans">or with email</span></div>
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-[var(--border)]" />
+            </div>
+            <div className="relative flex justify-center">
+              <span className="bg-[var(--bg-secondary)] px-3 text-xs text-[var(--text-faint)]">or with email</span>
+            </div>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="block text-xs font-sans font-medium text-[var(--text-muted)] mb-1.5">Email</label>
+              <label className="mb-1.5 block text-xs font-medium text-[var(--text-muted)]">Email</label>
               <div className="relative">
                 <Mail size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-faint)]" />
                 <input
@@ -81,30 +105,30 @@ export default function SignInPage() {
                   value={email}
                   onChange={event => setEmail(event.target.value)}
                   required
-                  className="w-full pl-10 pr-4 py-2.5 text-sm font-sans bg-[var(--bg-secondary)] border border-[var(--border)] focus:outline-none focus:border-[var(--accent)] transition-colors"
+                  className="w-full border border-[var(--border)] bg-[var(--bg-primary)] py-2.5 pl-10 pr-4 text-sm outline-none transition-colors focus:border-[var(--accent)]"
                   placeholder="you@example.com"
                 />
               </div>
             </div>
 
             <div>
-              <label className="block text-xs font-sans font-medium text-[var(--text-muted)] mb-1.5">Password</label>
+              <label className="mb-1.5 block text-xs font-medium text-[var(--text-muted)]">Password</label>
               <div className="relative">
                 <Lock size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-faint)]" />
                 <input
-                  type={showPwd ? 'text' : 'password'}
+                  type={showPassword ? 'text' : 'password'}
                   value={password}
                   onChange={event => setPassword(event.target.value)}
                   required
-                  className="w-full pl-10 pr-10 py-2.5 text-sm font-sans bg-[var(--bg-secondary)] border border-[var(--border)] focus:outline-none focus:border-[var(--accent)] transition-colors"
+                  className="w-full border border-[var(--border)] bg-[var(--bg-primary)] py-2.5 pl-10 pr-10 text-sm outline-none transition-colors focus:border-[var(--accent)]"
                   placeholder="••••••••"
                 />
                 <button
                   type="button"
-                  onClick={() => setShowPwd(prev => !prev)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--text-faint)]"
+                  onClick={() => setShowPassword(prev => !prev)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--text-faint)] transition-colors hover:text-[var(--text-primary)]"
                 >
-                  {showPwd ? <EyeOff size={15} /> : <Eye size={15} />}
+                  {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
                 </button>
               </div>
             </div>
@@ -112,15 +136,20 @@ export default function SignInPage() {
             <button
               type="submit"
               disabled={!!loading}
-              className="w-full py-2.5 text-sm font-sans font-medium bg-[var(--text-primary)] text-[var(--bg-primary)] hover:bg-[var(--accent)] disabled:opacity-60 transition-colors flex items-center justify-center gap-2"
+              className="flex w-full items-center justify-center gap-2 bg-[var(--text-primary)] py-2.5 text-sm font-medium text-[var(--bg-primary)] transition-colors hover:bg-[var(--accent)] disabled:opacity-60"
             >
-              {loading === 'credentials' ? <><Loader2 size={15} className="animate-spin" /> Signing in…</> : 'Sign In'}
+              {loading === 'credentials' ? <Loader2 size={15} className="animate-spin" /> : <ArrowRight size={15} />}
+              Sign In
             </button>
 
-            <p className="text-center text-sm font-sans text-[var(--text-muted)] mt-6">
-              No account?{' '}
-              <Link href="/auth/register" className="text-[var(--accent)] hover:underline">Create one</Link>
-            </p>
+            <div className="flex items-center justify-between text-sm text-[var(--text-muted)]">
+              <Link href="/auth/register" className="text-[var(--accent)] hover:underline">
+                Create account
+              </Link>
+              <Link href="/auth/forgot-password" className="text-[var(--accent)] hover:underline">
+                Forgot password?
+              </Link>
+            </div>
           </form>
         </div>
       </div>

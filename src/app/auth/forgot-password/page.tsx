@@ -16,7 +16,7 @@ export default function ForgotPasswordPage() {
     e.preventDefault();
     setLoading(true);
     try {
-      // Try server endpoint first
+      // Try server endpoint first.
       try {
         const res = await fetch('/api/auth/forgot-password', {
           method: 'POST',
@@ -30,12 +30,10 @@ export default function ForgotPasswordPage() {
           router.push(`/auth/verify-otp?email=${encodeURIComponent(email.trim().toLowerCase())}`);
           return;
         }
-        // fallthrough to client-side supabase call
-      } catch (err) {
-        // server failed — attempt client-side Supabase fallback
+      } catch {
+        // Fallback to client-side Supabase flow.
       }
 
-      // Fallback: call Supabase directly from the browser
       const supabase = getSupabaseBrowserClient();
       const { error } = await supabase.auth.resetPasswordForEmail(email.trim().toLowerCase());
       if (error) throw error;
@@ -83,20 +81,15 @@ export default function ForgotPasswordPage() {
               disabled={loading}
               className="w-full py-2.5 text-sm font-sans font-medium rounded-lg bg-[var(--text-primary)] text-[var(--bg-primary)] hover:bg-[var(--accent)] disabled:opacity-60 transition-colors flex items-center justify-center gap-2"
             >
-              {loading ? <><Loader2 size={15} className="animate-spin" /> Sending…</> : 'Send reset link'}
+              {loading ? <><Loader2 size={15} className="animate-spin" /> Sending...</> : 'Send reset link'}
             </button>
 
-            <p className="text-center text-sm font-sans text-[var(--text-muted)] mt-4">
-              Remembered your password?{' '}
-              <Link href="/auth/signin" className="text-[var(--accent)] hover:underline">Sign in</Link>
-            </p>
+            <div className="text-center">
+              <Link href="/auth/signin" className="inline-flex items-center gap-2 text-xs font-sans text-[var(--text-faint)] hover:text-[var(--accent)] transition-colors">
+                <ArrowLeft size={14} /> Back to sign in
+              </Link>
+            </div>
           </form>
-
-          <div className="mt-6 pt-4 border-t border-[var(--border)]">
-            <Link href="/auth/signin" className="inline-flex items-center gap-2 text-xs font-sans text-[var(--text-faint)] hover:text-[var(--accent)] transition-colors">
-              <ArrowLeft size={14} /> Back to sign in
-            </Link>
-          </div>
         </div>
       </div>
     </div>

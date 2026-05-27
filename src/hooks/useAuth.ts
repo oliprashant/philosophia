@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { getIdToken, onAuthStateChanged, type User as FirebaseUser } from 'firebase/auth';
-import { getFirebaseAuth, logOut, signInWithGoogle } from '@/lib/firebase-client';
+import { getFirebaseAuth, logOut as logOutFirebase, signInWithGoogle } from '@/lib/firebase-client';
 
 type UnifiedAuthUser = {
   id: string;
@@ -39,30 +39,64 @@ function buildFallbackUser(firebaseUser: FirebaseUser): UnifiedAuthUser {
 export function useAuth() {
   const [user, setUser] = useState<UnifiedAuthUser | null>(null);
   const [loading, setLoading] = useState(true);
+  const hasDatabaseSession = useRef(false);
 
   useEffect(() => {
+    let cancelled = false;
+
+    const loadDatabaseSession = async () => {
+      try {
+        const response = await fetch('/api/user/profile', {
+          method: 'GET',
+          cache: 'no-store',
+        });
+
+        if (!response.ok) {
+          return;
+        }
+
+        const payload = (await response.json()) as { user?: UnifiedAuthUser };
+        if (cancelled || !payload.user) return;
+
+        hasDatabaseSession.current = true;
+        setUser({
+          ...payload.user,
+          displayName: payload.user.name,
+          photoURL: payload.user.image,
+        });
+      } catch (error) {
+        console.error('Database auth lookup failed:', error);
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    };
+
+    void loadDatabaseSession();
+
     const firebaseAuth = getFirebaseAuth();
 
     if (!firebaseAuth) {
-      setLoading(false);
-      setUser(null);
-      return;
+      return () => {
+        cancelled = true;
+      };
     }
 
     const syncFirebaseUser = async (nextUser: FirebaseUser) => {
       try {
         const idToken = await getIdToken(nextUser, true);
-        const response = await fetch('/api/auth/firebase-sync', {
+        const response = await fetch('/api/user/sync', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             Authorization: `Bearer ${idToken}`,
           },
           body: JSON.stringify({
-            uid: nextUser.uid,
+            firebaseUid: nextUser.uid,
             email: nextUser.email,
-            displayName: nextUser.displayName,
-            photoURL: nextUser.photoURL,
+            name: nextUser.displayName,
+            image: nextUser.photoURL,
           }),
         });
 
@@ -71,6 +105,7 @@ export function useAuth() {
         }
 
         const payload = (await response.json()) as { user: UnifiedAuthUser };
+        hasDatabaseSession.current = true;
         setUser({
           ...payload.user,
           displayName: nextUser.displayName || payload.user.name,
@@ -78,7 +113,9 @@ export function useAuth() {
         });
       } catch (error) {
         console.error('Firebase auth sync failed:', error);
-        setUser(buildFallbackUser(nextUser));
+        if (!hasDatabaseSession.current) {
+          setUser(buildFallbackUser(nextUser));
+        }
       } finally {
         setLoading(false);
       }
@@ -86,7 +123,9 @@ export function useAuth() {
 
     const unsubscribe = onAuthStateChanged(firebaseAuth, (nextUser) => {
       if (!nextUser) {
-        setUser(null);
+        if (!hasDatabaseSession.current) {
+          setUser(null);
+        }
         setLoading(false);
         return;
       }
@@ -94,13 +133,31 @@ export function useAuth() {
       void syncFirebaseUser(nextUser);
     });
 
-    return () => unsubscribe();
+    return () => {
+      cancelled = true;
+      unsubscribe();
+    };
   }, []);
 
   return {
     user,
     loading,
     signInWithGoogle,
-    logOut,
+    logOut: async () => {
+      try {
+        await logOutFirebase();
+      } catch (error) {
+        console.error('Firebase sign-out failed:', error);
+      }
+
+      try {
+        await fetch('/api/auth/logout', { method: 'POST' });
+      } catch (error) {
+        console.error('Native sign-out failed:', error);
+      }
+
+      hasDatabaseSession.current = false;
+      setUser(null);
+    },
   };
 }

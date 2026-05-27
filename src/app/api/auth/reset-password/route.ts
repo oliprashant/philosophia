@@ -1,9 +1,9 @@
-// src/app/api/auth/reset-password/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
-import { getSupabaseServerClient } from '@/lib/supabase/server';
+import crypto from 'node:crypto';
 import bcrypt from 'bcryptjs';
 import { z } from 'zod';
+import { prisma } from '@/lib/prisma';
+import { getSupabaseServerClient } from '@/lib/supabase/server';
 
 const schema = z.object({
   token: z.string().min(1),
@@ -11,91 +11,75 @@ const schema = z.object({
   refreshToken: z.string().min(1).optional(),
 });
 
+function hashToken(token: string) {
+  return crypto.createHash('sha256').update(token).digest('hex');
+}
+
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const parsed = schema.safeParse(body);
+
     if (!parsed.success) {
       return NextResponse.json({ error: 'Invalid data' }, { status: 400 });
     }
 
     const { token, newPassword, refreshToken } = parsed.data;
-    const supabase = getSupabaseServerClient();
-    const { data: authData, error: authError } = await supabase.auth.getUser(token);
 
-    if (authError || !authData.user?.email) {
-      return NextResponse.json({ error: 'Invalid or expired reset link' }, { status: 400 });
-    }
-
-    const email = authData.user.email.toLowerCase();
-    const user = await prisma.user.findUnique({
-      where: { email },
-      select: { id: true, password: true, passwordHash: true },
-    });
-
-    if (!user) {
-      return NextResponse.json({ error: 'Account not found for this recovery link' }, { status: 404 });
-    }
-
-    if (!user.password && !user.passwordHash) {
-      return NextResponse.json(
-        { error: 'This account uses Google sign-in and does not support password reset.' },
-        { status: 400 }
-      );
-    }
-
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const supabaseAnonKey =
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
-
-    if (!supabaseUrl || !supabaseAnonKey) {
-      return NextResponse.json({ error: 'Supabase credentials are not configured' }, { status: 500 });
-    }
-
-    // Prefer SDK session flow if refresh token is available.
-    let supabaseUpdated = false;
+    // Preferred reset path: Supabase recovery session.
     if (refreshToken) {
-      const { error: setSessionError } = await supabase.auth.setSession({
+      const supabase = getSupabaseServerClient();
+      const sessionResult = await supabase.auth.setSession({
         access_token: token,
         refresh_token: refreshToken,
       });
 
-      if (!setSessionError) {
-        const { error: updateUserError } = await supabase.auth.updateUser({
-          password: newPassword,
-        });
-        supabaseUpdated = !updateUserError;
+      if (sessionResult.error) {
+        console.error('[Reset Password POST] Supabase setSession error:', sessionResult.error.message);
+      } else {
+        const updateResult = await supabase.auth.updateUser({ password: newPassword });
+        if (updateResult.error) {
+          console.error('[Reset Password POST] Supabase updateUser error:', updateResult.error.message);
+          return NextResponse.json({ error: 'Failed to reset password' }, { status: 500 });
+        }
+        return NextResponse.json({ success: true, mode: 'recovery' });
       }
     }
 
-    // Fallback: call GoTrue endpoint directly with access token.
-    if (!supabaseUpdated) {
-      const supabaseResponse = await fetch(`${supabaseUrl}/auth/v1/user`, {
-        method: 'PUT',
-        headers: {
-          apikey: supabaseAnonKey,
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ password: newPassword }),
-      });
+    // Fallback reset path: Prisma token-based reset.
+    const tokenHash = hashToken(token);
+    const resetToken = await prisma.passwordResetToken.findFirst({
+      where: {
+        tokenHash,
+        usedAt: null,
+        expiresAt: { gt: new Date() },
+      },
+      include: { user: true },
+    });
 
-      if (!supabaseResponse.ok) {
-        const rawError = await supabaseResponse.text();
-        console.error('[Reset Password POST] Supabase update error:', rawError);
-        return NextResponse.json({ error: 'Could not update password in Supabase' }, { status: 400 });
-      }
+    if (!resetToken) {
+      return NextResponse.json({ error: 'Invalid or expired reset link' }, { status: 400 });
     }
 
     const passwordHash = await bcrypt.hash(newPassword, 12);
-    await prisma.user.update({
-      where: { id: user.id },
-      data: { password: passwordHash, passwordHash },
-    });
 
-    return NextResponse.json({ success: true });
-  } catch (err) {
-    console.error('[Reset Password POST]', err);
+    await prisma.$transaction([
+      prisma.user.update({
+        where: { id: resetToken.userId },
+        data: {
+          password: passwordHash,
+          passwordHash,
+        },
+      }),
+      prisma.passwordResetToken.update({
+        where: { id: resetToken.id },
+        data: { usedAt: new Date() },
+      }),
+    ]);
+
+    return NextResponse.json({ success: true, mode: 'token' });
+  } catch (error) {
+    console.error('[Reset Password POST]', error);
     return NextResponse.json({ error: 'Failed to reset password' }, { status: 500 });
   }
 }

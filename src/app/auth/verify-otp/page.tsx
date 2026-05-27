@@ -103,6 +103,14 @@ function VerifyOtpContent() {
         throw new Error(data.error || 'Invalid verification code');
       }
 
+      if (data.mode === 'registration') {
+        setPulseSuccess(true);
+        toast.success('Email verified');
+        router.push('/profile');
+        router.refresh();
+        return;
+      }
+
       setPulseSuccess(true);
       sessionStorage.setItem('reset_refresh_token', data.refreshToken || '');
       toast.success('OTP verified successfully');
@@ -186,7 +194,7 @@ function VerifyOtpContent() {
             disabled={loading}
             className="w-full py-2.5 text-sm font-sans font-medium rounded-lg bg-[var(--text-primary)] text-[var(--bg-primary)] hover:bg-[var(--accent)] disabled:opacity-60 transition-colors flex items-center justify-center gap-2"
           >
-            {loading ? <><Loader2 size={15} className="animate-spin" /> Verifying…</> : <><Check size={15} /> Verify OTP</>}
+            {loading ? <><Loader2 size={15} className="animate-spin" /> Verifying...</> : <><Check size={15} /> Verify OTP</>}
           </button>
 
           <button
@@ -196,7 +204,7 @@ function VerifyOtpContent() {
             className="w-full mt-3 py-2.5 text-sm font-sans font-medium rounded-lg border border-[var(--border)] text-[var(--text-primary)] hover:border-[var(--accent)] disabled:opacity-60 transition-colors"
           >
             {resendLoading
-              ? 'Sending…'
+              ? 'Sending...'
               : countdown > 0
                 ? `Resend code in ${countdown}s`
                 : 'Resend code'}
