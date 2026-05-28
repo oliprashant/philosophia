@@ -103,14 +103,6 @@ function VerifyOtpContent() {
         throw new Error(data.error || 'Invalid verification code');
       }
 
-      if (data.mode === 'registration') {
-        setPulseSuccess(true);
-        toast.success('Email verified');
-        router.push('/profile');
-        router.refresh();
-        return;
-      }
-
       setPulseSuccess(true);
       sessionStorage.setItem('reset_refresh_token', data.refreshToken || '');
       toast.success('OTP verified successfully');

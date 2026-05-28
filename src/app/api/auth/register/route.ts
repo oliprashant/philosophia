@@ -1,20 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
-import crypto from 'node:crypto';
 import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
-import { sendEmail } from '@/lib/mailer';
+import { createSessionForUser, serializeUser, setSessionCookie } from '@/lib/auth';
 
 const schema = z.object({
   name: z.string().min(2).max(100),
   email: z.string().email(),
   password: z.string().min(8).max(100),
 });
-
-function generateOtp(length = 8) {
-  const max = 10 ** length;
-  return String(Math.floor(Math.random() * max)).padStart(length, '0');
-}
 
 export async function POST(req: NextRequest) {
   try {
@@ -29,8 +23,6 @@ export async function POST(req: NextRequest) {
     const normalizedEmail = email.toLowerCase().trim();
     const existing = await prisma.user.findUnique({ where: { email: normalizedEmail } });
     const hash = await bcrypt.hash(password, 12);
-    const otp = generateOtp();
-    const expiresAt = new Date(Date.now() + 1000 * 60 * 30);
 
     if (existing && existing.emailVerified) {
       return NextResponse.json({ error: 'Email already registered' }, { status: 409 });
@@ -43,7 +35,7 @@ export async function POST(req: NextRequest) {
             name,
             password: hash,
             passwordHash: hash,
-            emailVerified: false,
+            emailVerified: true,
           },
         })
       : await prisma.user.create({
@@ -53,26 +45,16 @@ export async function POST(req: NextRequest) {
             password: hash,
             passwordHash: hash,
             role: 'READER',
-            emailVerified: false,
+            emailVerified: true,
           },
         });
 
     await prisma.verificationToken.deleteMany({ where: { identifier: normalizedEmail } });
-    await prisma.verificationToken.create({
-      data: {
-        identifier: normalizedEmail,
-        token: otp,
-        expires: expiresAt,
-      },
-    });
 
-    await sendEmail({
-      to: normalizedEmail,
-      subject: 'Verify your Philosophia account',
-      html: `<p>Your verification code is <strong>${otp}</strong>.</p><p>This code expires in 30 minutes.</p>`,
-    });
-
-    return NextResponse.json({ success: true, requiresVerification: true, email: user.email });
+    const session = await createSessionForUser(user.id);
+    const response = NextResponse.json({ success: true, user: serializeUser(user) });
+    setSessionCookie(response, session.sessionToken, session.expires);
+    return response;
   } catch (error) {
     console.error('[Auth Register POST]', error);
     return NextResponse.json({ error: 'Could not register account' }, { status: 500 });

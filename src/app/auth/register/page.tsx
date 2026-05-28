@@ -40,8 +40,9 @@ export default function RegisterPage() {
         throw new Error(data.error || 'Could not create account');
       }
 
-      toast.success('Verification code sent to your email');
-      router.push(`/auth/verify-otp?email=${encodeURIComponent(email.trim().toLowerCase())}`);
+      toast.success('Account created successfully');
+      router.push('/profile');
+      router.refresh();
     } catch (error: any) {
       toast.error(error.message || 'Could not create account');
     } finally {

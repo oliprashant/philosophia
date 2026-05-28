@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { prisma } from '@/lib/prisma';
-import { createSessionForUser, serializeUser, setSessionCookie } from '@/lib/auth';
 import { getSupabaseServerClient } from '@/lib/supabase/server';
 
 const schema = z.object({
@@ -20,34 +18,6 @@ export async function POST(req: NextRequest) {
 
     const email = parsed.data.email.toLowerCase().trim();
     const otp = parsed.data.otp.trim();
-
-    // Registration verification flow (Prisma-backed email/password account).
-    const user = await prisma.user.findUnique({ where: { email } });
-    if (user) {
-      const token = await prisma.verificationToken.findFirst({
-        where: {
-          identifier: email,
-          token: otp,
-          expires: { gt: new Date() },
-        },
-      });
-
-      if (token) {
-        await prisma.$transaction([
-          prisma.user.update({
-            where: { id: user.id },
-            data: { emailVerified: true },
-          }),
-          prisma.verificationToken.deleteMany({ where: { identifier: email } }),
-        ]);
-
-        const session = await createSessionForUser(user.id);
-        const updatedUser = await prisma.user.findUniqueOrThrow({ where: { id: user.id } });
-        const response = NextResponse.json({ mode: 'registration', user: serializeUser(updatedUser) });
-        setSessionCookie(response, session.sessionToken, session.expires);
-        return response;
-      }
-    }
 
     // Password recovery flow (Supabase-backed OTP verification).
     const supabase = getSupabaseServerClient();
