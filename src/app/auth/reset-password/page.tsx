@@ -55,6 +55,7 @@ function ResetPasswordContent() {
   const [checkingRecovery, setCheckingRecovery] = useState(Boolean(code));
   const [recoveryReady, setRecoveryReady] = useState(!code && Boolean(token));
   const [accessToken, setAccessToken] = useState(token);
+  const [refreshToken, setRefreshToken] = useState('');
   const [loading, setLoading] = useState(false);
 
   const strength = useMemo(() => getPasswordStrength(password), [password]);
@@ -77,6 +78,8 @@ function ResetPasswordContent() {
 
         if (!cancelled && data.session?.access_token) {
           setAccessToken(data.session.access_token);
+          setRefreshToken(data.session.refresh_token);
+          sessionStorage.setItem('reset_refresh_token', data.session.refresh_token);
           setRecoveryReady(true);
         }
       } catch {
@@ -135,12 +138,16 @@ function ResetPasswordContent() {
     setLoading(true);
 
     try {
-      const refreshToken = sessionStorage.getItem('reset_refresh_token') || undefined;
+      const fallbackRefreshToken = sessionStorage.getItem('reset_refresh_token') || undefined;
 
       const res = await fetch('/api/auth/reset-password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token: accessToken || token, newPassword: password, refreshToken }),
+        body: JSON.stringify({
+          token: accessToken || token,
+          newPassword: password,
+          refreshToken: refreshToken || fallbackRefreshToken,
+        }),
       });
 
       const data = await res.json();
@@ -148,7 +155,7 @@ function ResetPasswordContent() {
         throw new Error(data.error || 'Could not reset password');
       }
 
-      sessionStorage.removeItem('reset_refresh_token');
+  sessionStorage.removeItem('reset_refresh_token');
       toast.success('Password reset successful');
       router.push('/auth/signin?reset=true');
     } catch (error: any) {

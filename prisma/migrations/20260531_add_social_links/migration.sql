@@ -1,0 +1,8 @@
+ALTER TABLE "users"
+ADD COLUMN IF NOT EXISTS "facebook" TEXT;
+
+ALTER TABLE "users"
+ADD COLUMN IF NOT EXISTS "instagram" TEXT;
+
+ALTER TABLE "users"
+ADD COLUMN IF NOT EXISTS "pinterest" TEXT;

@@ -28,8 +28,8 @@ export default function ForgotPasswordPage() {
 
       toast.success("We've sent a password reset link to your email");
       router.push('/auth/signin?reset=true');
-    } catch {
-      toast.error('Could not process request');
+    } catch (error: any) {
+      toast.error(error.message || 'Could not process request');
     } finally {
       setLoading(false);
     }
