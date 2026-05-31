@@ -3,8 +3,18 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
-import { BookOpen, Check, Loader2, LogOut, Mail, PencilLine, MessageSquare, Upload, User } from 'lucide-react';
-import toast from 'react-hot-toast';
+import {
+  BookOpen,
+  Check,
+  Facebook,
+  Instagram,
+  Loader2,
+  LogOut,
+  Mail,
+  MessageSquare,
+  Pin,
+  User,
+} from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 
 type ProfileUser = {
@@ -13,6 +23,9 @@ type ProfileUser = {
   email: string;
   image: string | null;
   bio: string | null;
+  facebook: string | null;
+  instagram: string | null;
+  pinterest: string | null;
   role: 'READER' | 'AUTHOR' | 'ADMIN';
   firebaseUid: string | null;
   emailVerified: boolean;
@@ -52,11 +65,6 @@ export default function ProfilePage() {
   const [comments, setComments] = useState<CommentItem[]>([]);
   const [activeTab, setActiveTab] = useState<(typeof tabs)[number]['id']>('saved');
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [uploading, setUploading] = useState(false);
-  const [name, setName] = useState('');
-  const [bio, setBio] = useState('');
-  const [image, setImage] = useState('');
 
   useEffect(() => {
     let cancelled = false;
@@ -83,9 +91,6 @@ export default function ProfilePage() {
         if (cancelled) return;
 
         setProfile(profilePayload.user);
-        setName(profilePayload.user.name || '');
-        setBio(profilePayload.user.bio || '');
-        setImage(profilePayload.user.image || '');
         setSavedPosts(savedPayload.savedPosts || []);
         setUpvotedPosts(upvotedPayload.upvotedPosts || []);
         setComments(commentsPayload.comments || []);
@@ -103,59 +108,6 @@ export default function ProfilePage() {
       cancelled = true;
     };
   }, []);
-
-  const saveProfile = async () => {
-    setSaving(true);
-    try {
-      const response = await fetch('/api/user/profile', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, bio, image: image || null }),
-      });
-
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.error || 'Could not update profile');
-      }
-
-      setProfile(data.user);
-      toast.success('Profile updated');
-    } catch (error: any) {
-      toast.error(error.message || 'Could not update profile');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    setUploading(true);
-    try {
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('type', 'avatar');
-
-      const response = await fetch('/api/upload', {
-        method: 'POST',
-        body: formData,
-      });
-
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.error || 'Could not upload image');
-      }
-
-      setImage(data.url);
-      toast.success('Avatar uploaded');
-    } catch (error: any) {
-      toast.error(error.message || 'Could not upload image');
-    } finally {
-      setUploading(false);
-      event.target.value = '';
-    }
-  };
 
   if (authLoading || loading) {
     return (
@@ -189,15 +141,20 @@ export default function ProfilePage() {
   }
 
   const visiblePosts: PostItem[] = activeTab === 'saved' ? savedPosts : upvotedPosts;
+  const socialLinks = [
+    profile.facebook ? { href: profile.facebook, label: 'Facebook', icon: Facebook } : null,
+    profile.instagram ? { href: profile.instagram, label: 'Instagram', icon: Instagram } : null,
+    profile.pinterest ? { href: profile.pinterest, label: 'Pinterest', icon: Pin } : null,
+  ].filter(Boolean) as Array<{ href: string; label: string; icon: typeof Facebook }>;
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-12 space-y-8">
       <div className="border border-[var(--border)] bg-[var(--bg-secondary)] p-6 shadow-sm">
         <div className="flex flex-col gap-6 md:flex-row md:items-start md:justify-between">
           <div className="flex items-start gap-4">
-            {image || profile.image ? (
+            {profile.image ? (
               <Image
-                src={image || profile.image || ''}
+                src={profile.image}
                 alt={profile.name || profile.email}
                 width={72}
                 height={72}
@@ -205,7 +162,7 @@ export default function ProfilePage() {
               />
             ) : (
               <div className="flex h-16 w-16 items-center justify-center rounded-full bg-[var(--bg-primary)] text-xl font-semibold text-[var(--text-primary)]">
-                {(name || profile.name || profile.email || 'U').slice(0, 1).toUpperCase()}
+                {(profile.name || profile.email || 'U').slice(0, 1).toUpperCase()}
               </div>
             )}
 
@@ -215,74 +172,48 @@ export default function ProfilePage() {
               </h1>
               <p className="text-sm text-[var(--text-muted)]">Database-backed profile</p>
               <p className="mt-1 text-xs text-[var(--text-faint)]">Signed in as {profile.email}</p>
+              <p className="mt-3 max-w-2xl text-sm text-[var(--text-secondary)]">
+                {profile.bio || 'No bio yet.'}
+              </p>
+
+              {socialLinks.length ? (
+                <div className="mt-4 flex flex-wrap gap-2">
+                  {socialLinks.map(({ href, label, icon: Icon }) => (
+                    <a
+                      key={label}
+                      href={href}
+                      target="_blank"
+                      rel="noreferrer noopener"
+                      aria-label={label}
+                      className="inline-flex items-center gap-2 rounded-full border border-[var(--border)] px-3 py-2 text-sm text-[var(--text-primary)] transition-colors hover:border-[var(--accent)] hover:text-[var(--accent)]"
+                    >
+                      <Icon size={14} />
+                      <span>{label}</span>
+                    </a>
+                  ))}
+                </div>
+              ) : null}
             </div>
           </div>
 
-          <button
-            type="button"
-            onClick={async () => {
-              await logOut();
-              window.location.href = '/auth/signin';
-            }}
-            className="inline-flex items-center gap-2 rounded-sm border border-[var(--border)] px-4 py-2.5 text-sm font-medium text-[var(--text-primary)] transition-colors hover:border-[var(--accent)]"
-          >
-            <LogOut size={14} /> Sign Out
-          </button>
-        </div>
-
-        <div className="mt-6 grid gap-3 md:grid-cols-2">
-          <div className="rounded border border-[var(--border)] bg-[var(--bg-primary)] p-4">
-            <div className="mb-1 flex items-center gap-2 text-xs uppercase tracking-widest text-[var(--text-faint)]">
-              <User size={14} /> Name
-            </div>
-            <input
-              value={name}
-              onChange={e => setName(e.target.value)}
-              className="w-full bg-transparent text-sm outline-none"
-              placeholder="Your name"
-            />
+          <div className="flex flex-wrap items-center gap-3">
+            <Link
+              href="/profile/edit"
+              className="inline-flex items-center gap-2 rounded-sm bg-[var(--text-primary)] px-4 py-2.5 text-sm font-medium text-[var(--bg-primary)] transition-colors hover:bg-[var(--accent)]"
+            >
+              <User size={14} /> Edit Profile
+            </Link>
+            <button
+              type="button"
+              onClick={async () => {
+                await logOut();
+                window.location.href = '/auth/signin';
+              }}
+              className="inline-flex items-center gap-2 rounded-sm border border-[var(--border)] px-4 py-2.5 text-sm font-medium text-[var(--text-primary)] transition-colors hover:border-[var(--accent)]"
+            >
+              <LogOut size={14} /> Sign Out
+            </button>
           </div>
-
-          <div className="rounded border border-[var(--border)] bg-[var(--bg-primary)] p-4">
-            <div className="mb-1 flex items-center gap-2 text-xs uppercase tracking-widest text-[var(--text-faint)]">
-              <Mail size={14} /> Email
-            </div>
-            <div className="text-sm text-[var(--text-primary)]">{profile.email}</div>
-          </div>
-        </div>
-
-        <div className="mt-4 rounded border border-[var(--border)] bg-[var(--bg-primary)] p-4">
-          <div className="mb-2 flex items-center gap-2 text-xs uppercase tracking-widest text-[var(--text-faint)]">
-            <PencilLine size={14} /> Bio
-          </div>
-          <textarea
-            value={bio}
-            onChange={e => setBio(e.target.value)}
-            rows={4}
-            className="w-full resize-none bg-transparent text-sm outline-none"
-            placeholder="Tell readers a little about yourself"
-          />
-        </div>
-
-        <div className="mt-4 flex flex-wrap items-center gap-3">
-          <label className="inline-flex cursor-pointer items-center gap-2 rounded-sm border border-[var(--border)] px-4 py-2.5 text-sm font-medium text-[var(--text-primary)] transition-colors hover:border-[var(--accent)]">
-            <Upload size={14} /> {uploading ? 'Uploading…' : 'Upload avatar'}
-            <input type="file" accept="image/*" className="hidden" onChange={handleAvatarUpload} />
-          </label>
-          <input
-            value={image}
-            onChange={e => setImage(e.target.value)}
-            className="min-w-0 flex-1 rounded-sm border border-[var(--border)] bg-[var(--bg-primary)] px-4 py-2.5 text-sm outline-none"
-            placeholder="Avatar URL"
-          />
-          <button
-            type="button"
-            onClick={saveProfile}
-            disabled={saving}
-            className="inline-flex items-center gap-2 rounded-sm bg-[var(--text-primary)] px-4 py-2.5 text-sm font-medium text-[var(--bg-primary)] transition-colors hover:bg-[var(--accent)] disabled:opacity-60"
-          >
-            {saving ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />} Save changes
-          </button>
         </div>
       </div>
 

@@ -12,6 +12,9 @@ export type SessionUser = {
   email: string;
   image: string | null;
   bio: string | null;
+  facebook: string | null;
+  instagram: string | null;
+  pinterest: string | null;
   role: 'READER' | 'AUTHOR' | 'ADMIN';
   firebaseUid: string | null;
   emailVerified: boolean;
@@ -27,6 +30,9 @@ export function serializeUser(user: {
   email: string;
   image: string | null;
   bio: string | null;
+  facebook?: string | null;
+  instagram?: string | null;
+  pinterest?: string | null;
   role: string;
   firebaseUid: string | null;
   emailVerified: boolean;
@@ -39,6 +45,9 @@ export function serializeUser(user: {
     email: user.email,
     image: user.image,
     bio: user.bio,
+    facebook: user.facebook ?? null,
+    instagram: user.instagram ?? null,
+    pinterest: user.pinterest ?? null,
     role: user.role as SessionUser['role'],
     firebaseUid: user.firebaseUid,
     emailVerified: user.emailVerified,

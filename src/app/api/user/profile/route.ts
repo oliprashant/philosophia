@@ -3,10 +3,29 @@ import { z } from 'zod';
 import { auth, serializeUser } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 
+const profileSelect = {
+  id: true,
+  name: true,
+  email: true,
+  image: true,
+  bio: true,
+  facebook: true,
+  instagram: true,
+  pinterest: true,
+  role: true,
+  firebaseUid: true,
+  emailVerified: true,
+  createdAt: true,
+  updatedAt: true,
+} as const;
+
 const updateSchema = z.object({
   name: z.string().max(120).nullable().optional(),
   bio: z.string().max(1000).nullable().optional(),
   image: z.string().url().nullable().optional(),
+  facebook: z.string().url().nullable().optional(),
+  instagram: z.string().url().nullable().optional(),
+  pinterest: z.string().url().nullable().optional(),
 });
 
 export async function GET() {
@@ -15,18 +34,7 @@ export async function GET() {
 
   const user = await prisma.user.findUnique({
     where: { id: session.user.id },
-    select: {
-      id: true,
-      name: true,
-      email: true,
-      image: true,
-      bio: true,
-      role: true,
-      firebaseUid: true,
-      emailVerified: true,
-      createdAt: true,
-      updatedAt: true,
-    },
+    select: profileSelect,
   });
 
   if (!user) return NextResponse.json({ error: 'User not found' }, { status: 404 });
@@ -50,19 +58,11 @@ export async function PUT(req: NextRequest) {
       ...(Object.prototype.hasOwnProperty.call(parsed.data, 'name') ? { name: parsed.data.name?.trim() || null } : {}),
       ...(Object.prototype.hasOwnProperty.call(parsed.data, 'bio') ? { bio: parsed.data.bio?.trim() || null } : {}),
       ...(Object.prototype.hasOwnProperty.call(parsed.data, 'image') ? { image: parsed.data.image || null } : {}),
+      ...(Object.prototype.hasOwnProperty.call(parsed.data, 'facebook') ? { facebook: parsed.data.facebook || null } : {}),
+      ...(Object.prototype.hasOwnProperty.call(parsed.data, 'instagram') ? { instagram: parsed.data.instagram || null } : {}),
+      ...(Object.prototype.hasOwnProperty.call(parsed.data, 'pinterest') ? { pinterest: parsed.data.pinterest || null } : {}),
     },
-    select: {
-      id: true,
-      name: true,
-      email: true,
-      image: true,
-      bio: true,
-      role: true,
-      firebaseUid: true,
-      emailVerified: true,
-      createdAt: true,
-      updatedAt: true,
-    },
+    select: profileSelect,
   });
 
   return NextResponse.json({ user: serializeUser(updated) });

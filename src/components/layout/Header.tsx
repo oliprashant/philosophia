@@ -159,25 +159,36 @@ export default function Header() {
             {/* Auth */}
             {loading ? null : user ? (
               <div className="relative" ref={userMenuRef}>
-                <button
-                  onClick={() => setUserMenuOpen(!userMenuOpen)}
-                  className="flex items-center gap-2 focus-ring rounded-full"
-                  aria-label="User menu"
-                >
-                  {user.photoURL ? (
-                    <Image
-                      src={user.photoURL}
-                      alt={user.displayName ?? 'User'}
-                      width={32}
-                      height={32}
-                      className="rounded-full border border-[var(--border)]"
-                    />
-                  ) : (
-                    <div className="w-8 h-8 rounded-full bg-[var(--accent)] text-white flex items-center justify-center text-xs font-sans font-medium">
-                      {user.displayName?.[0]?.toUpperCase() ?? 'U'}
-                    </div>
-                  )}
-                </button>
+                <div className="flex items-center gap-1">
+                  <Link
+                    href="/profile"
+                    onClick={() => setUserMenuOpen(false)}
+                    className="focus-ring rounded-full"
+                    aria-label="Open profile"
+                  >
+                    {user.photoURL ? (
+                      <Image
+                        src={user.photoURL}
+                        alt={user.displayName ?? 'User'}
+                        width={32}
+                        height={32}
+                        className="rounded-full border border-[var(--border)]"
+                      />
+                    ) : (
+                      <div className="w-8 h-8 rounded-full bg-[var(--accent)] text-white flex items-center justify-center text-xs font-sans font-medium">
+                        {user.displayName?.[0]?.toUpperCase() ?? 'U'}
+                      </div>
+                    )}
+                  </Link>
+
+                  <button
+                    onClick={() => setUserMenuOpen(!userMenuOpen)}
+                    className="p-1 text-[var(--text-muted)] transition-colors hover:text-[var(--text-primary)]"
+                    aria-label="User menu"
+                  >
+                    <ChevronDown size={14} className={`transition-transform ${userMenuOpen ? 'rotate-180' : ''}`} />
+                  </button>
+                </div>
 
                 {userMenuOpen && (
                   <div className="absolute right-0 top-full mt-2 w-52 bg-[var(--bg-primary)] border border-[var(--border)] rounded-sm shadow-card py-1 animate-slide-down z-50">

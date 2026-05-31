@@ -10,6 +10,9 @@ type UnifiedAuthUser = {
   email: string;
   image: string | null;
   bio: string | null;
+  facebook: string | null;
+  instagram: string | null;
+  pinterest: string | null;
   role: 'READER' | 'AUTHOR' | 'ADMIN';
   firebaseUid: string | null;
   emailVerified: boolean;
@@ -26,6 +29,9 @@ function buildFallbackUser(firebaseUser: FirebaseUser): UnifiedAuthUser {
     email: firebaseUser.email || '',
     image: firebaseUser.photoURL || null,
     bio: null,
+    facebook: null,
+    instagram: null,
+    pinterest: null,
     role: 'READER',
     firebaseUid: firebaseUser.uid,
     emailVerified: firebaseUser.emailVerified,

@@ -18,6 +18,9 @@ model User {
   emailVerified Boolean   @default(false)
   image         String?
   bio           String?
+  facebook      String?
+  instagram     String?
+  pinterest     String?
   role          Role      @default(READER)
   password      String?   // legacy hashed password field
   passwordHash  String?   // native email/password users
