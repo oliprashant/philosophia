@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { ArrowLeft, Check, Copy, Eye, EyeOff, Loader2 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { getSupabaseBrowserClient } from '@/lib/supabase/client';
 
 function generateStrongPassword(length = 16) {
   const upper = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
@@ -45,22 +46,64 @@ function ResetPasswordContent() {
   const router = useRouter();
   const params = useSearchParams();
   const token = params.get('token') || '';
+  const code = params.get('code');
 
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [checkingRecovery, setCheckingRecovery] = useState(Boolean(code));
+  const [recoveryReady, setRecoveryReady] = useState(!code && Boolean(token));
+  const [accessToken, setAccessToken] = useState(token);
   const [loading, setLoading] = useState(false);
 
   const strength = useMemo(() => getPasswordStrength(password), [password]);
 
   useEffect(() => {
-    if (!token) {
+    if (!code) {
+      return;
+    }
+
+    let cancelled = false;
+
+    const setupRecoverySession = async () => {
+      try {
+        const supabase = getSupabaseBrowserClient();
+        const { error } = await supabase.auth.exchangeCodeForSession(code);
+        if (error) throw error;
+
+        const { data, error: sessionError } = await supabase.auth.getSession();
+        if (sessionError) throw sessionError;
+
+        if (!cancelled && data.session?.access_token) {
+          setAccessToken(data.session.access_token);
+          setRecoveryReady(true);
+        }
+      } catch {
+        if (!cancelled) {
+          setRecoveryReady(false);
+        }
+      } finally {
+        if (!cancelled) {
+          setCheckingRecovery(false);
+        }
+      }
+    };
+
+    setupRecoverySession();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [code]);
+
+  useEffect(() => {
+    if (!token && !code) {
       router.replace('/auth/forgot-password');
     }
-  }, [token, router]);
+  }, [token, code, router]);
 
-  if (!token) return null;
+  if (!token && !code) return null;
 
   const fillStrongPassword = async () => {
     const generated = generateStrongPassword();
@@ -97,7 +140,7 @@ function ResetPasswordContent() {
       const res = await fetch('/api/auth/reset-password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token, newPassword: password, refreshToken }),
+        body: JSON.stringify({ token: accessToken || token, newPassword: password, refreshToken }),
       });
 
       const data = await res.json();
@@ -128,10 +171,25 @@ function ResetPasswordContent() {
         </div>
 
         <div className="border border-[var(--border)] rounded-xl p-8 bg-[var(--bg-primary)] shadow-sm">
+          {checkingRecovery ? (
+            <div className="text-center space-y-3 mb-5">
+              <Loader2 size={24} className="mx-auto animate-spin text-[var(--accent)]" />
+              <p className="text-sm font-sans text-[var(--text-muted)]">Validating reset link…</p>
+            </div>
+          ) : !recoveryReady ? (
+            <div className="space-y-4 text-center mb-5">
+              <p className="text-sm font-sans text-red-600">This password reset link is invalid or expired.</p>
+              <Link href="/auth/forgot-password" className="text-sm font-sans text-[var(--accent)] hover:underline">
+                Request a new reset link
+              </Link>
+            </div>
+          ) : null}
+
           <button
             type="button"
             onClick={fillStrongPassword}
             className="w-full mb-4 py-2.5 text-sm font-sans font-medium rounded-lg border border-[var(--border)] text-[var(--text-primary)] hover:border-[var(--accent)] transition-colors"
+            disabled={!recoveryReady}
           >
             Generate strong password
           </button>
@@ -200,16 +258,16 @@ function ResetPasswordContent() {
 
             <button
               type="submit"
-              disabled={loading}
+                  disabled={loading || !recoveryReady}
               className="w-full py-2.5 text-sm font-sans font-medium rounded-lg bg-[var(--text-primary)] text-[var(--bg-primary)] hover:bg-[var(--accent)] disabled:opacity-60 transition-colors flex items-center justify-center gap-2"
             >
               {loading ? (
                 <>
-                  <Loader2 size={15} className="animate-spin" /> Resetting...
+                      <Loader2 size={15} className="animate-spin" /> Resetting...
                 </>
               ) : (
                 <>
-                  <Check size={15} /> Update password
+                      <Check size={15} /> Update password
                 </>
               )}
             </button>
