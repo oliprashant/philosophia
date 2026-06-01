@@ -17,9 +17,10 @@ import {
   Bold, Italic, UnderlineIcon, Strikethrough, Code,
   Heading2, Heading3, List, ListOrdered, Quote,
   Image as ImageIcon, Save, Eye, Loader2, Upload,
-  AlignLeft, AlignCenter, AlignRight, X
+  AlignLeft, AlignCenter, AlignRight, X, ExternalLink
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import PostPreviewArticle from '@/components/blog/PostPreviewArticle';
 
 const GENRES = ['ESSAY', 'DIALOGUE', 'POEM', 'APHORISM', 'LETTER', 'REVIEW', 'INTERVIEW'];
 
@@ -123,6 +124,7 @@ function EditorWithSearchParams() {
   const [humours, setHumours] = useState<any[]>([]);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
   const [selectedImagePos, setSelectedImagePos] = useState<number | null>(null);
   const [imageWidth, setImageWidth] = useState<number>(100);
   const [imageOverlay, setImageOverlay] = useState<{ top: number; left: number } | null>(null);
@@ -351,6 +353,22 @@ function EditorWithSearchParams() {
     }
   };
 
+  const previewPost = {
+    title,
+    excerpt: excerpt || null,
+    content: editor?.getHTML() || '',
+    coverImage: coverImage || null,
+    coverAlt: coverAlt || null,
+    featured,
+    publishedAt: status === 'PUBLISHED' ? (updatedAt || new Date().toISOString()) : null,
+    createdAt: updatedAt || new Date().toISOString(),
+    author: {
+      name: 'Admin',
+      image: null,
+    },
+    readingTime: Math.max(1, Math.round((editor?.getText().trim() || '').split(/\s+/).filter(Boolean).length / 200)) || 1,
+  };
+
   useEffect(() => {
     if (!editor) return;
 
@@ -426,6 +444,14 @@ function EditorWithSearchParams() {
       const post = data;
       toast.success(editId ? 'Post updated!' : 'Post created!');
       localStorage.removeItem(draftKey);
+      if (nextStatus === 'PUBLISHED') {
+        const nextSlug = post?.slug || slug || title.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+        if (nextSlug) {
+          router.push(`/blog/${nextSlug}`);
+          return;
+        }
+      }
+
       if (!editId) router.push(`/admin/editor?id=${post.id}`);
     } catch (err: any) {
       toast.error(err?.message || 'Save failed');
@@ -446,16 +472,13 @@ function EditorWithSearchParams() {
               Last updated on {new Date(updatedAt).toLocaleDateString()}
             </span>
           )}
-          {editId && slug && status === 'PUBLISHED' && (
-            <a
-              href={`/blog/${slug}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-1.5 text-sm font-sans text-[var(--text-muted)] hover:text-[var(--accent)] transition-colors"
-            >
-              <Eye size={15} /> Preview
-            </a>
-          )}
+          <button
+            type="button"
+            onClick={() => setPreviewOpen(true)}
+            className="flex items-center gap-2 px-5 py-2 text-sm font-sans font-medium bg-[var(--bg-secondary)] border border-[var(--border)] hover:border-[var(--accent)] transition-colors"
+          >
+            <Eye size={14} /> Preview
+          </button>
           <button
             onClick={() => save()}
             disabled={saving}
@@ -475,6 +498,41 @@ function EditorWithSearchParams() {
           )}
         </div>
       </div>
+
+      {previewOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 px-4 py-8">
+          <div className="relative w-full max-w-6xl max-h-[92vh] overflow-hidden rounded border border-[var(--border)] bg-[var(--bg-primary)] shadow-2xl">
+            <div className="flex items-center justify-between border-b border-[var(--border)] bg-[var(--bg-secondary)] px-4 py-3">
+              <div>
+                <p className="text-xs uppercase tracking-[0.25em] text-[var(--text-faint)]">Live Preview</p>
+                <p className="text-sm text-[var(--text-muted)]">Unsaved changes only</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setPreviewOpen(false)}
+                  className="inline-flex items-center gap-2 rounded-sm border border-[var(--border)] px-3 py-2 text-sm text-[var(--text-primary)] transition-colors hover:border-[var(--accent)]"
+                >
+                  <X size={14} /> Close
+                </button>
+                {slug ? (
+                  <button
+                    type="button"
+                    onClick={() => window.open(`/blog/${slug}`, '_blank', 'noopener,noreferrer')}
+                    className="inline-flex items-center gap-2 rounded-sm bg-[var(--text-primary)] px-3 py-2 text-sm text-[var(--bg-primary)] transition-colors hover:bg-[var(--accent)]"
+                  >
+                    <ExternalLink size={14} /> Open live
+                  </button>
+                ) : null}
+              </div>
+            </div>
+
+            <div className="max-h-[calc(92vh-57px)] overflow-y-auto">
+              <PostPreviewArticle post={previewPost} />
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Main editing area */}

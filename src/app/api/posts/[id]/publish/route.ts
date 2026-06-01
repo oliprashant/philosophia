@@ -108,6 +108,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
       return NextResponse.json({
         success: true,
         id: updated.id,
+        slug: updated.slug,
         published: updated.published,
         publishedAt: updated.publishedAt?.toISOString() ?? null,
       });
