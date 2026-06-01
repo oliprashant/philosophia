@@ -340,6 +340,17 @@ function EditorWithSearchParams() {
     editor.chain().focus().setNodeSelection(selectedImagePos).deleteSelection().run();
   };
 
+  const readJsonResponse = async (response: Response) => {
+    const text = await response.text();
+    if (!text) return null;
+
+    try {
+      return JSON.parse(text) as any;
+    } catch {
+      return { error: text };
+    }
+  };
+
   useEffect(() => {
     if (!editor) return;
 
@@ -401,21 +412,23 @@ function EditorWithSearchParams() {
       featured,
     };
     try {
-      const res = await fetch(editId ? `/api/admin/posts/${editId}` : '/api/admin/posts', {
-        method: editId ? 'PUT' : 'POST',
+      const endpoint = editId && publishNow ? `/api/posts/${editId}/publish` : editId ? '/api/admin/posts/' + editId : '/api/admin/posts';
+      const method = editId && publishNow ? 'PATCH' : editId ? 'PUT' : 'POST';
+      const res = await fetch(endpoint, {
+        method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       });
+      const data = await readJsonResponse(res);
       if (!res.ok) {
-        const d = await res.json();
-        throw new Error(d.error);
+        throw new Error(data?.error || 'Save failed');
       }
-      const post = await res.json();
+      const post = data;
       toast.success(editId ? 'Post updated!' : 'Post created!');
       localStorage.removeItem(draftKey);
       if (!editId) router.push(`/admin/editor?id=${post.id}`);
     } catch (err: any) {
-      toast.error(err.message || 'Save failed');
+      toast.error(err?.message || 'Save failed');
     } finally {
       setSaving(false);
     }
