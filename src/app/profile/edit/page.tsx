@@ -3,7 +3,7 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
-import { ArrowLeft, Facebook, Instagram, Loader2, Mail, Pin, Save, X } from 'lucide-react';
+import { ArrowLeft, Facebook, Instagram, Loader2, Mail, Pin, Save, Upload, X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
 
@@ -36,6 +36,7 @@ export default function ProfileEditPage() {
   const [profile, setProfile] = useState<ProfileUser | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
   const [name, setName] = useState('');
   const [bio, setBio] = useState('');
   const [image, setImage] = useState('');
@@ -109,6 +110,36 @@ export default function ProfileEditPage() {
     }
   };
 
+  const uploadProfilePicture = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setUploadingImage(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('type', 'avatar');
+
+      const response = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || 'Could not upload profile picture');
+      }
+
+      setImage(data.url);
+      toast.success('Profile picture uploaded');
+    } catch (error: any) {
+      toast.error(error.message || 'Could not upload profile picture');
+    } finally {
+      setUploadingImage(false);
+      event.target.value = '';
+    }
+  };
+
   if (loading) {
     return (
       <div className="mx-auto flex max-w-4xl items-center justify-center px-4 py-16">
@@ -158,18 +189,41 @@ export default function ProfileEditPage() {
       <div className="grid gap-8 rounded border border-[var(--border)] bg-[var(--bg-secondary)] p-6 shadow-sm lg:grid-cols-[220px_1fr]">
         <div className="space-y-4">
           {image ? (
-            <Image
-              src={image}
-              alt={profile.name || profile.email}
-              width={180}
-              height={180}
-              className="h-40 w-40 rounded-full object-cover"
-            />
+            <div className="relative h-40 w-40 overflow-hidden rounded-full">
+              <Image
+                src={image}
+                alt={profile.name || profile.email}
+                fill
+                className="object-cover"
+              />
+            </div>
           ) : (
             <div className="flex h-40 w-40 items-center justify-center rounded-full bg-[var(--bg-primary)] text-4xl font-semibold text-[var(--text-primary)]">
               {(name || profile.name || profile.email || 'U').slice(0, 1).toUpperCase()}
             </div>
           )}
+
+          <label className="inline-flex cursor-pointer items-center gap-2 rounded-sm border border-[var(--border)] bg-[var(--bg-primary)] px-4 py-2.5 text-sm font-medium text-[var(--text-primary)] transition-colors hover:border-[var(--accent)]">
+            {uploadingImage ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
+            {image ? 'Replace profile picture' : 'Upload profile picture'}
+            <input
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={uploadProfilePicture}
+              disabled={uploadingImage}
+            />
+          </label>
+
+          {image ? (
+            <button
+              type="button"
+              onClick={() => setImage('')}
+              className="inline-flex items-center gap-2 text-xs text-[var(--text-muted)] transition-colors hover:text-[var(--text-primary)]"
+            >
+              <X size={12} /> Remove picture
+            </button>
+          ) : null}
 
           <div className="rounded border border-[var(--border)] bg-[var(--bg-primary)] p-4 text-sm text-[var(--text-muted)]">
             <div className="flex items-center gap-2 text-xs uppercase tracking-widest text-[var(--text-faint)]">
@@ -188,16 +242,6 @@ export default function ProfileEditPage() {
                 onChange={event => setName(event.target.value)}
                 className="w-full rounded border border-[var(--border)] bg-[var(--bg-primary)] px-4 py-3 text-sm outline-none transition-colors focus:border-[var(--accent)]"
                 placeholder="Your name"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-xs font-medium uppercase tracking-widest text-[var(--text-faint)]">Avatar URL</label>
-              <input
-                value={image}
-                onChange={event => setImage(event.target.value)}
-                className="w-full rounded border border-[var(--border)] bg-[var(--bg-primary)] px-4 py-3 text-sm outline-none transition-colors focus:border-[var(--accent)]"
-                placeholder="https://..."
               />
             </div>
           </div>
