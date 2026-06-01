@@ -137,6 +137,7 @@ model Post {
   content     String      @db.Text   // HTML from TipTap
   coverImage  String?                // Cloudinary URL
   coverAlt    String?                // Accessibility alt text
+  status      PostStatus  @default(DRAFT)
   published   Boolean     @default(false)
   featured    Boolean     @default(false)
   genre       Genre       @default(ESSAY)
@@ -186,6 +187,12 @@ enum Genre {
   LETTER
   REVIEW
   INTERVIEW
+}
+
+enum PostStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
 }
 
 model PostTag {
