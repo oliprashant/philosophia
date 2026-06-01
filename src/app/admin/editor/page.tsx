@@ -406,7 +406,7 @@ function EditorWithSearchParams() {
       coverAlt: coverAlt || undefined,
       genre,
       status: nextStatus,
-      categoryId: categoryId || undefined,
+      categoryId: categoryId || 'None',
       humourId: humourId || undefined,
       published: nextStatus === 'PUBLISHED',
       featured,
