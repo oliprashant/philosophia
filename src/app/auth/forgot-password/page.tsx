@@ -27,7 +27,7 @@ export default function ForgotPasswordPage() {
       }
 
       toast.success("We've sent a password reset link to your email");
-      router.push('/auth/signin?reset=true');
+      router.push(`/auth/verify-otp?email=${encodeURIComponent(email)}`);
     } catch (error: any) {
       toast.error(error.message || 'Could not process request');
     } finally {
@@ -63,6 +63,10 @@ export default function ForgotPasswordPage() {
                 />
               </div>
             </div>
+
+            <p className="text-xs font-sans text-[var(--text-faint)] leading-5">
+              We will send both a password reset link and an 8-digit code. Use either one to continue.
+            </p>
 
             <button
               type="submit"

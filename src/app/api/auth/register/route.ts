@@ -27,10 +27,12 @@ export async function POST(req: NextRequest) {
     const hash = await bcrypt.hash(password, 12);
 
     const supabase = getSupabaseServerClient();
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXTAUTH_URL || new URL(req.url).origin;
     const signUpResult = await supabase.auth.signUp({
       email: normalizedEmail,
       password,
       options: {
+        emailRedirectTo: appUrl,
         data: { name },
       },
     });
