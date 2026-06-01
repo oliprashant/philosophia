@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import { hasAdminAccess } from '@/lib/admin-auth';
 import { z } from 'zod';
 import { Prisma } from '@prisma/client';
 
@@ -36,15 +37,16 @@ function errorDetails(error: unknown) {
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
   try {
     const session = await auth();
-    if (!session?.user) return jsonError('Admin session missing', 401);
+    const adminAccess = await hasAdminAccess();
+    if (!session?.user && !adminAccess) return jsonError('Admin session missing', 401);
 
-    const role = (session.user as any).role as string;
-    const userId = (session.user as any).id as string;
-    if (role !== 'ADMIN' && role !== 'AUTHOR') return jsonError('Forbidden', 403, 'Admin access is required');
+    const role = (session?.user as any)?.role as string | undefined;
+    const userId = (session?.user as any)?.id as string | undefined;
+    if (!adminAccess && role !== 'ADMIN' && role !== 'AUTHOR') return jsonError('Forbidden', 403, 'Admin access is required');
 
     const post = await prisma.post.findUnique({ where: { id: params.id } });
     if (!post) return jsonError('Not found', 404, `Post ${params.id} does not exist`);
-    if (role === 'AUTHOR' && post.authorId !== userId) return jsonError('Forbidden', 403, 'You can only publish your own posts');
+    if (!adminAccess && role === 'AUTHOR' && post.authorId !== userId) return jsonError('Forbidden', 403, 'You can only publish your own posts');
 
     let body: unknown;
     try {
