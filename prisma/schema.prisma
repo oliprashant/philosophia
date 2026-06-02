@@ -14,18 +14,12 @@ datasource db {
 model User {
   id            String    @id @default(cuid())
   name          String?
-  email         String    @unique
-  supabaseId    String?   @unique
-  emailVerified Boolean   @default(false)
+  email         String?   @unique
+  emailVerified DateTime?
   image         String?
   bio           String?
-  facebook      String?
-  instagram     String?
-  pinterest     String?
   role          Role      @default(READER)
-  password      String?   // legacy hashed password field
-  passwordHash  String?   // native email/password users
-  firebaseUid   String?   @unique
+  password      String?   // hashed, only for credentials provider
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
@@ -137,7 +131,6 @@ model Post {
   content     String      @db.Text   // HTML from TipTap
   coverImage  String?                // Cloudinary URL
   coverAlt    String?                // Accessibility alt text
-  status      PostStatus  @default(DRAFT)
   published   Boolean     @default(false)
   featured    Boolean     @default(false)
   genre       Genre       @default(ESSAY)
@@ -187,12 +180,6 @@ enum Genre {
   LETTER
   REVIEW
   INTERVIEW
-}
-
-enum PostStatus {
-  DRAFT
-  PUBLISHED
-  ARCHIVED
 }
 
 model PostTag {

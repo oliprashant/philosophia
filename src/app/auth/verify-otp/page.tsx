@@ -6,7 +6,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { ArrowLeft, Check, Loader2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
-const OTP_LENGTH = 8;
+const OTP_LENGTH = 6;
 const RESEND_SECONDS = 60;
 
 function VerifyOtpContent() {
@@ -84,7 +84,7 @@ function VerifyOtpContent() {
   const verifyOtp = async () => {
     const code = otp.join('');
     if (code.length !== OTP_LENGTH) {
-      toast.error(`Please enter the full ${OTP_LENGTH}-digit code`);
+      toast.error('Please enter the full 6-digit code');
       return;
     }
 
@@ -155,12 +155,12 @@ function VerifyOtpContent() {
 
         <div className={`border border-[var(--border)] rounded-xl p-8 bg-[var(--bg-primary)] shadow-sm transition-all ${shake ? 'animate-[shake_0.45s_ease]' : ''} ${pulseSuccess ? 'animate-pulse' : ''}`}>
           <p className="text-sm font-sans text-[var(--text-muted)] mb-5 text-center">
-            Enter the verification code sent to
+            Enter the 6-digit code sent to
             <br />
             <span className="text-[var(--text-primary)] font-medium">{email}</span>
           </p>
 
-          <div className="grid gap-2 mb-5" style={{ gridTemplateColumns: `repeat(${OTP_LENGTH}, minmax(0, 1fr))` }}>
+          <div className="grid grid-cols-6 gap-2 mb-5">
             {otp.map((digit, index) => (
               <input
                 key={index}
@@ -186,7 +186,7 @@ function VerifyOtpContent() {
             disabled={loading}
             className="w-full py-2.5 text-sm font-sans font-medium rounded-lg bg-[var(--text-primary)] text-[var(--bg-primary)] hover:bg-[var(--accent)] disabled:opacity-60 transition-colors flex items-center justify-center gap-2"
           >
-            {loading ? <><Loader2 size={15} className="animate-spin" /> Verifying...</> : <><Check size={15} /> Verify OTP</>}
+            {loading ? <><Loader2 size={15} className="animate-spin" /> Verifying…</> : <><Check size={15} /> Verify OTP</>}
           </button>
 
           <button
@@ -196,7 +196,7 @@ function VerifyOtpContent() {
             className="w-full mt-3 py-2.5 text-sm font-sans font-medium rounded-lg border border-[var(--border)] text-[var(--text-primary)] hover:border-[var(--accent)] disabled:opacity-60 transition-colors"
           >
             {resendLoading
-              ? 'Sending...'
+              ? 'Sending…'
               : countdown > 0
                 ? `Resend code in ${countdown}s`
                 : 'Resend code'}

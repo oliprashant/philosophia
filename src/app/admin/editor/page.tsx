@@ -17,10 +17,9 @@ import {
   Bold, Italic, UnderlineIcon, Strikethrough, Code,
   Heading2, Heading3, List, ListOrdered, Quote,
   Image as ImageIcon, Save, Eye, Loader2, Upload,
-  AlignLeft, AlignCenter, AlignRight, X, ExternalLink
+  AlignLeft, AlignCenter, AlignRight, X
 } from 'lucide-react';
 import toast from 'react-hot-toast';
-import PostPreviewArticle from '@/components/blog/PostPreviewArticle';
 
 const GENRES = ['ESSAY', 'DIALOGUE', 'POEM', 'APHORISM', 'LETTER', 'REVIEW', 'INTERVIEW'];
 
@@ -110,26 +109,21 @@ function EditorWithSearchParams() {
   // State
   const [title, setTitle] = useState('');
   const [excerpt, setExcerpt] = useState('');
-  const [slug, setSlug] = useState('');
   const [coverImage, setCoverImage] = useState('');
   const [coverAlt, setCoverAlt] = useState('');
   const [genre, setGenre] = useState('ESSAY');
-  const [status, setStatus] = useState<'DRAFT' | 'PUBLISHED' | 'ARCHIVED'>('DRAFT');
   const [categoryId, setCategoryId] = useState('');
   const [humourId, setHumourId] = useState('');
   const [published, setPublished] = useState(false);
   const [featured, setFeatured] = useState(false);
-  const [updatedAt, setUpdatedAt] = useState('');
   const [categories, setCategories] = useState<any[]>([]);
   const [humours, setHumours] = useState<any[]>([]);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
-  const [previewOpen, setPreviewOpen] = useState(false);
   const [selectedImagePos, setSelectedImagePos] = useState<number | null>(null);
   const [imageWidth, setImageWidth] = useState<number>(100);
   const [imageOverlay, setImageOverlay] = useState<{ top: number; left: number } | null>(null);
   const editorWrapRef = useRef<HTMLDivElement>(null);
-  const draftKey = `philosophia-admin-editor:${editId || 'new'}`;
 
   // TipTap editor
   const editor = useEditor({
@@ -159,88 +153,21 @@ function EditorWithSearchParams() {
   // Load existing post if editing
   useEffect(() => {
     if (!editId || !editor) return;
-    fetch(`/api/admin/posts/${editId}`)
+    fetch(`/api/posts/${editId}`)
       .then(r => r.json())
       .then(post => {
         setTitle(post.title ?? '');
         setExcerpt(post.excerpt ?? '');
-        setSlug(post.slug ?? '');
         setCoverImage(post.coverImage ?? '');
         setCoverAlt(post.coverAlt ?? '');
         setGenre(post.genre ?? 'ESSAY');
-        setStatus(post.status ?? (post.published ? 'PUBLISHED' : 'DRAFT'));
         setCategoryId(post.category?.id ?? '');
         setHumourId(post.humour?.id ?? '');
         setPublished(post.published ?? false);
         setFeatured(post.featured ?? false);
-        setUpdatedAt(post.updatedAt ?? '');
         editor.commands.setContent(post.content ?? '');
       });
   }, [editId, editor]);
-
-  useEffect(() => {
-    if (editId) return;
-
-    try {
-      const saved = localStorage.getItem(draftKey);
-      if (!saved) return;
-      const draft = JSON.parse(saved) as {
-        title?: string;
-        excerpt?: string;
-        slug?: string;
-        coverImage?: string;
-        coverAlt?: string;
-        genre?: string;
-        status?: 'DRAFT' | 'PUBLISHED' | 'ARCHIVED';
-        categoryId?: string;
-        humourId?: string;
-        published?: boolean;
-        featured?: boolean;
-        content?: string;
-      };
-
-      setTitle(draft.title || '');
-      setExcerpt(draft.excerpt || '');
-      setSlug(draft.slug || '');
-      setCoverImage(draft.coverImage || '');
-      setCoverAlt(draft.coverAlt || '');
-      setGenre((draft.genre as typeof genre) || 'ESSAY');
-      setStatus(draft.status || 'DRAFT');
-      setCategoryId(draft.categoryId || '');
-      setHumourId(draft.humourId || '');
-      setPublished(Boolean(draft.published));
-      setFeatured(Boolean(draft.featured));
-      if (draft.content) editor?.commands.setContent(draft.content);
-    } catch {
-      // Ignore malformed draft payloads.
-    }
-  }, [draftKey, editId, editor]);
-
-  useEffect(() => {
-    const timer = window.setInterval(() => {
-      if (editId) return;
-
-      localStorage.setItem(
-        draftKey,
-        JSON.stringify({
-          title,
-          excerpt,
-          slug,
-          coverImage,
-          coverAlt,
-          genre,
-          status,
-          categoryId,
-          humourId,
-          published,
-          featured,
-          content: editor?.getHTML() || '',
-        })
-      );
-    }, 30000);
-
-    return () => window.clearInterval(timer);
-  }, [draftKey, editId, title, excerpt, slug, coverImage, coverAlt, genre, status, categoryId, humourId, published, featured, editor]);
 
   // Upload cover image directly to Cloudinary (unsigned)
   const uploadCover = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -250,15 +177,18 @@ function EditorWithSearchParams() {
     try {
       const formData = new FormData();
       formData.append('file', file);
-      formData.append('type', 'cover');
+      formData.append('upload_preset', 'philosophia_cover');
 
-      const res = await fetch('/api/upload/image', { method: 'POST', body: formData });
+      const res = await fetch(
+        `https://api.cloudinary.com/v1_1/${process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME}/image/upload`,
+        { method: 'POST', body: formData }
+      );
       if (!res.ok) {
         const errorData = await res.json();
         throw new Error(errorData.error?.message || 'Upload failed');
       }
       const data = await res.json();
-      setCoverImage(data.url);
+      setCoverImage(data.secure_url);
       toast.success('Cover image uploaded');
     } catch (err: any) {
       toast.error(err?.message || 'Upload failed');
@@ -277,9 +207,12 @@ function EditorWithSearchParams() {
     try {
       const formData = new FormData();
       formData.append('file', file);
-      formData.append('type', 'inline');
+      formData.append('upload_preset', 'philosophia_inline');
 
-      const res = await fetch('/api/upload/image', { method: 'POST', body: formData });
+      const res = await fetch(
+        `https://api.cloudinary.com/v1_1/${process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME}/image/upload`,
+        { method: 'POST', body: formData }
+      );
       if (!res.ok) {
         const errorData = await res.json();
         throw new Error(errorData.error?.message || 'Upload failed');
@@ -291,7 +224,7 @@ function EditorWithSearchParams() {
         .chain()
         .focus()
         .setImage({
-          src: data.url,
+          src: data.secure_url,
           alt: '',
           class: ALIGNMENT_CLASSES.center,
           style: DEFAULT_IMAGE_STYLE,
@@ -342,33 +275,6 @@ function EditorWithSearchParams() {
     editor.chain().focus().setNodeSelection(selectedImagePos).deleteSelection().run();
   };
 
-  const readJsonResponse = async (response: Response) => {
-    const text = await response.text();
-    if (!text) return null;
-
-    try {
-      return JSON.parse(text) as any;
-    } catch {
-      return { error: text };
-    }
-  };
-
-  const previewPost = {
-    title,
-    excerpt: excerpt || null,
-    content: editor?.getHTML() || '',
-    coverImage: coverImage || null,
-    coverAlt: coverAlt || null,
-    featured,
-    publishedAt: status === 'PUBLISHED' ? (updatedAt || new Date().toISOString()) : null,
-    createdAt: updatedAt || new Date().toISOString(),
-    author: {
-      name: 'Admin',
-      image: null,
-    },
-    readingTime: Math.max(1, Math.round((editor?.getText().trim() || '').split(/\s+/).filter(Boolean).length / 200)) || 1,
-  };
-
   useEffect(() => {
     if (!editor) return;
 
@@ -414,47 +320,33 @@ function EditorWithSearchParams() {
       return;
     }
     setSaving(true);
-    const nextStatus = publishNow ? 'PUBLISHED' : status;
     const body = {
       title,
       excerpt,
-      slug,
       content: editor.getHTML(),
       coverImage: coverImage || undefined,
       coverAlt: coverAlt || undefined,
       genre,
-      status: nextStatus,
-      categoryId: categoryId || 'None',
+      categoryId: categoryId || undefined,
       humourId: humourId || undefined,
-      published: nextStatus === 'PUBLISHED',
+      published: publishNow ?? published,
       featured,
     };
     try {
-      const endpoint = editId && publishNow ? `/api/posts/${editId}/publish` : editId ? '/api/admin/posts/' + editId : '/api/admin/posts';
-      const method = editId && publishNow ? 'PATCH' : editId ? 'PUT' : 'POST';
-      const res = await fetch(endpoint, {
-        method,
+      const res = await fetch(editId ? `/api/posts/${editId}` : '/api/posts', {
+        method: editId ? 'PATCH' : 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       });
-      const data = await readJsonResponse(res);
       if (!res.ok) {
-        throw new Error(data?.error || 'Save failed');
+        const d = await res.json();
+        throw new Error(d.error);
       }
-      const post = data;
+      const post = await res.json();
       toast.success(editId ? 'Post updated!' : 'Post created!');
-      localStorage.removeItem(draftKey);
-      if (nextStatus === 'PUBLISHED') {
-        const nextSlug = post?.slug || slug || title.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
-        if (nextSlug) {
-          router.push(`/blog/${nextSlug}`);
-          return;
-        }
-      }
-
       if (!editId) router.push(`/admin/editor?id=${post.id}`);
     } catch (err: any) {
-      toast.error(err?.message || 'Save failed');
+      toast.error(err.message || 'Save failed');
     } finally {
       setSaving(false);
     }
@@ -467,18 +359,16 @@ function EditorWithSearchParams() {
       <div className="flex items-center justify-between mb-8">
         <h1 className="section-title">{editId ? 'Edit Post' : 'New Post'}</h1>
         <div className="flex items-center gap-3">
-          {editId && updatedAt && status === 'PUBLISHED' && (
-            <span className="text-xs font-sans text-[var(--text-faint)]">
-              Last updated on {new Date(updatedAt).toLocaleDateString()}
-            </span>
+          {editId && published && (
+            <a
+              href={`/blog/${editId}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1.5 text-sm font-sans text-[var(--text-muted)] hover:text-[var(--accent)] transition-colors"
+            >
+              <Eye size={15} /> Preview
+            </a>
           )}
-          <button
-            type="button"
-            onClick={() => setPreviewOpen(true)}
-            className="flex items-center gap-2 px-5 py-2 text-sm font-sans font-medium bg-[var(--bg-secondary)] border border-[var(--border)] hover:border-[var(--accent)] transition-colors"
-          >
-            <Eye size={14} /> Preview
-          </button>
           <button
             onClick={() => save()}
             disabled={saving}
@@ -487,7 +377,7 @@ function EditorWithSearchParams() {
             {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
             Save Draft
           </button>
-          {status !== 'PUBLISHED' && (
+          {!published && (
             <button
               onClick={() => save(true)}
               disabled={saving}
@@ -499,41 +389,6 @@ function EditorWithSearchParams() {
         </div>
       </div>
 
-      {previewOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 px-4 py-8">
-          <div className="relative w-full max-w-6xl max-h-[92vh] overflow-hidden rounded border border-[var(--border)] bg-[var(--bg-primary)] shadow-2xl">
-            <div className="flex items-center justify-between border-b border-[var(--border)] bg-[var(--bg-secondary)] px-4 py-3">
-              <div>
-                <p className="text-xs uppercase tracking-[0.25em] text-[var(--text-faint)]">Live Preview</p>
-                <p className="text-sm text-[var(--text-muted)]">Unsaved changes only</p>
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setPreviewOpen(false)}
-                  className="inline-flex items-center gap-2 rounded-sm border border-[var(--border)] px-3 py-2 text-sm text-[var(--text-primary)] transition-colors hover:border-[var(--accent)]"
-                >
-                  <X size={14} /> Close
-                </button>
-                {slug ? (
-                  <button
-                    type="button"
-                    onClick={() => window.open(`/blog/${slug}`, '_blank', 'noopener,noreferrer')}
-                    className="inline-flex items-center gap-2 rounded-sm bg-[var(--text-primary)] px-3 py-2 text-sm text-[var(--bg-primary)] transition-colors hover:bg-[var(--accent)]"
-                  >
-                    <ExternalLink size={14} /> Open live
-                  </button>
-                ) : null}
-              </div>
-            </div>
-
-            <div className="max-h-[calc(92vh-57px)] overflow-y-auto">
-              <PostPreviewArticle post={previewPost} />
-            </div>
-          </div>
-        </div>
-      )}
-
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Main editing area */}
         <div className="lg:col-span-2 space-y-4">
@@ -544,13 +399,6 @@ function EditorWithSearchParams() {
             placeholder="Post title…"
             className="w-full px-4 py-3 text-2xl font-bold bg-transparent border-b-2 border-[var(--border)] focus:outline-none focus:border-[var(--accent)] transition-colors"
             style={{ fontFamily: 'var(--font-cormorant)' }}
-          />
-          <input
-            type="text"
-            value={slug}
-            onChange={e => setSlug(e.target.value)}
-            placeholder="post-slug"
-            className="w-full px-4 py-2 text-sm font-sans bg-[var(--bg-secondary)] border border-[var(--border)] focus:outline-none focus:border-[var(--accent)] transition-colors"
           />
           <textarea
             value={excerpt}
@@ -646,18 +494,6 @@ function EditorWithSearchParams() {
           {/* Status */}
           <div className="border border-[var(--border)] p-4">
             <h3 className="text-xs font-sans font-semibold uppercase tracking-widest text-[var(--text-faint)] mb-3">Status</h3>
-            <div className="mb-3 space-y-1.5">
-              <label className="block text-xs font-sans text-[var(--text-faint)]">Post status</label>
-              <select
-                value={status}
-                onChange={e => setStatus(e.target.value as 'DRAFT' | 'PUBLISHED' | 'ARCHIVED')}
-                className={SELECT_CLS}
-              >
-                <option value="DRAFT">Draft</option>
-                <option value="PUBLISHED">Published</option>
-                <option value="ARCHIVED">Archived</option>
-              </select>
-            </div>
             <label className="flex items-center gap-3 cursor-pointer mb-3">
               <input
                 type="checkbox"

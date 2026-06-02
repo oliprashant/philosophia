@@ -4,7 +4,7 @@ import { getSupabaseServerClient } from '@/lib/supabase/server';
 
 const schema = z.object({
   email: z.string().email(),
-  otp: z.string().regex(/^\d{6,8}$/, 'OTP must be 6 to 8 digits'),
+  otp: z.string().regex(/^\d{6}$/, 'OTP must be 6 digits'),
 });
 
 export async function POST(req: NextRequest) {
@@ -19,9 +19,10 @@ export async function POST(req: NextRequest) {
     const email = parsed.data.email.toLowerCase().trim();
     const otp = parsed.data.otp.trim();
 
-    // Password recovery flow (Supabase-backed OTP verification).
     const supabase = getSupabaseServerClient();
 
+    // Supabase projects can be configured with different OTP types.
+    // Try recovery first (password reset), then fallback to email OTP.
     const recoveryAttempt = await supabase.auth.verifyOtp({
       email,
       token: otp,
@@ -41,7 +42,6 @@ export async function POST(req: NextRequest) {
     }
 
     return NextResponse.json({
-      mode: 'recovery',
       accessToken: result.data.session.access_token,
       refreshToken: result.data.session.refresh_token,
     });

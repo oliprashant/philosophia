@@ -6,11 +6,12 @@ import { prisma } from '@/lib/prisma';
 import PostGrid from '@/components/blog/PostGrid';
 import CategoryStrip from '@/components/home/CategoryStrip';
 import type { PostSummary } from '@/types';
+import { getFormBySlug, resolveGenreFilter } from '@/lib/forms';
 
 export const metadata: Metadata = { title: 'All Essays' };
 
 interface PageProps {
-  searchParams: { category?: string; genre?: string; humour?: string; tag?: string; page?: string };
+  searchParams: { category?: string; form?: string; genre?: string; humour?: string; tag?: string; page?: string };
 }
 
 async function getPosts({ searchParams }: PageProps) {
@@ -20,7 +21,8 @@ async function getPosts({ searchParams }: PageProps) {
 
   const where: any = { published: true };
   if (searchParams.category) where.category = { slug: searchParams.category };
-  if (searchParams.genre) where.genre = searchParams.genre.toUpperCase();
+  const genreFilter = resolveGenreFilter(searchParams.form, searchParams.genre);
+  if (genreFilter) where.genre = genreFilter;
   if (searchParams.humour) where.humour = { slug: searchParams.humour };
   if (searchParams.tag) where.tags = { some: { tag: { slug: searchParams.tag } } };
 
@@ -53,7 +55,8 @@ export default async function BlogPage(props: PageProps) {
   const { posts, total, page, limit, categories } = await getPosts(props);
   const { searchParams } = props;
 
-  const activeFilter = searchParams.category || searchParams.genre || searchParams.humour || searchParams.tag;
+  const activeForm = searchParams.form ? getFormBySlug(searchParams.form) : undefined;
+  const activeFilter = searchParams.category || searchParams.form || searchParams.genre || searchParams.humour || searchParams.tag;
   const pageCount = Math.ceil(total / limit);
 
   return (
@@ -67,6 +70,7 @@ export default async function BlogPage(props: PageProps) {
             <h1 className="section-title">
               {searchParams.category
                 ? categories.find(c => c.slug === searchParams.category)?.name ?? 'Category'
+                : activeForm ? activeForm.name + 's'
                 : searchParams.genre ? searchParams.genre.charAt(0) + searchParams.genre.slice(1).toLowerCase() + 's'
                 : searchParams.tag ? `#${searchParams.tag}`
                 : 'All Essays'}

@@ -1,23 +1,19 @@
-"use client";
+'use client';
 // src/components/layout/Header.tsx
+// Responsive header with:
+// - Brand logo + tagline
+// - Category dropdown navigation
+// - Search link
+// - Dark mode toggle
+// - Auth state (sign in button / user menu)
 
-import { useEffect, useRef, useState } from 'react';
+import { Suspense, useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
+import { useSession, signOut } from 'next-auth/react';
 import { useTheme } from 'next-themes';
-import {
-  BookOpen,
-  ChevronDown,
-  LogOut,
-  Menu,
-  Moon,
-  Search,
-  Settings,
-  Sun,
-  User,
-  X,
-} from 'lucide-react';
-import { useAuth } from '@/hooks/useAuth';
+import { Menu, X, Search, Sun, Moon, ChevronDown, User, BookOpen, Settings, LogOut, PenLine } from 'lucide-react';
+import FormsDropdown, { FormsMobileLinks } from '@/components/layout/FormsDropdown';
 
 const NAV_CATEGORIES = [
   { name: 'Ethics', slug: 'ethics' },
@@ -27,27 +23,17 @@ const NAV_CATEGORIES = [
   { name: 'Aesthetics', slug: 'aesthetics' },
 ];
 
-const NAV_GENRES = [
-  { name: 'Essays', slug: 'ESSAY' },
-  { name: 'Dialogues', slug: 'DIALOGUE' },
-  { name: 'Poems', slug: 'POEM' },
-  { name: 'Aphorisms', slug: 'APHORISM' },
-];
-
 export default function Header() {
-  const { user, loading, signInWithGoogle, logOut } = useAuth();
+  const { data: session } = useSession();
   const { resolvedTheme, setTheme } = useTheme();
-  const [mounted, setMounted] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const [catOpen, setCatOpen] = useState(false);
+  const [formsOpen, setFormsOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [mounted, setMounted] = useState(false); // 👈 add this
   const catRef = useRef<HTMLDivElement>(null);
   const userMenuRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
 
   // Detect scroll for shadow
   useEffect(() => {
@@ -65,12 +51,18 @@ export default function Header() {
 
       if (!insideNav && !insideUserMenu) {
         setCatOpen(false);
+        setFormsOpen(false);
         setUserMenuOpen(false);
       }
     };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
   }, []);
+
+  useEffect(() => setMounted(true), []); // 👈 add here
+
+  const isAdmin = (session?.user as any)?.role === 'ADMIN';
+  const isAuthor = (session?.user as any)?.role === 'AUTHOR' || isAdmin;
 
   return (
     <header
@@ -99,7 +91,7 @@ export default function Header() {
             {/* Categories dropdown */}
             <div className="relative">
               <button
-                onClick={() => setCatOpen(!catOpen)}
+                onClick={() => { setCatOpen(!catOpen); setFormsOpen(false); }}
                 className="flex items-center gap-1 text-sm font-sans text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors"
                 aria-expanded={catOpen}
               >
@@ -121,6 +113,18 @@ export default function Header() {
               )}
             </div>
 
+            <Suspense fallback={
+              <span className="text-sm font-sans text-[var(--text-muted)]">Forms</span>
+            }>
+              <FormsDropdown
+                open={formsOpen}
+                onOpenChange={open => {
+                  setFormsOpen(open);
+                  if (open) setCatOpen(false);
+                }}
+              />
+            </Suspense>
+
             <Link
               href="/about"
               className="text-sm font-sans text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors"
@@ -141,60 +145,41 @@ export default function Header() {
             </Link>
 
             {/* Theme toggle */}
-            {mounted ? (
-              <button
-                onClick={() => setTheme(resolvedTheme === 'dark' ? 'light' : 'dark')}
-                aria-label="Toggle theme"
-                className="p-2 text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors"
-              >
-                {resolvedTheme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
-              </button>
-            ) : (
-              <span
-                className="inline-flex h-9 w-9 items-center justify-center"
-                aria-hidden="true"
-              />
-            )}
+            <button
+              onClick={() => setTheme(resolvedTheme === 'dark' ? 'light' : 'dark')}
+              aria-label="Toggle theme"
+              className="p-2 text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors"
+            >
+             {mounted ? (resolvedTheme === 'dark' ? <Sun size={18} /> : <Moon size={18} />) : <Sun size={18} />}            </button>
 
             {/* Auth */}
-            {loading ? null : user ? (
+            {session ? (
               <div className="relative" ref={userMenuRef}>
-                <div className="flex items-center gap-1">
-                  <Link
-                    href="/profile"
-                    onClick={() => setUserMenuOpen(false)}
-                    className="focus-ring rounded-full"
-                    aria-label="Open profile"
-                  >
-                    {user.photoURL ? (
-                      <Image
-                        src={user.photoURL}
-                        alt={user.displayName ?? 'User'}
-                        width={32}
-                        height={32}
-                        className="rounded-full border border-[var(--border)]"
-                      />
-                    ) : (
-                      <div className="w-8 h-8 rounded-full bg-[var(--accent)] text-white flex items-center justify-center text-xs font-sans font-medium">
-                        {user.displayName?.[0]?.toUpperCase() ?? 'U'}
-                      </div>
-                    )}
-                  </Link>
-
-                  <button
-                    onClick={() => setUserMenuOpen(!userMenuOpen)}
-                    className="p-1 text-[var(--text-muted)] transition-colors hover:text-[var(--text-primary)]"
-                    aria-label="User menu"
-                  >
-                    <ChevronDown size={14} className={`transition-transform ${userMenuOpen ? 'rotate-180' : ''}`} />
-                  </button>
-                </div>
+                <button
+                  onClick={() => setUserMenuOpen(!userMenuOpen)}
+                  className="flex items-center gap-2 focus-ring rounded-full"
+                  aria-label="User menu"
+                >
+                  {session.user?.image ? (
+                    <Image
+                      src={session.user.image}
+                      alt={session.user.name ?? 'User'}
+                      width={32}
+                      height={32}
+                      className="rounded-full border border-[var(--border)]"
+                    />
+                  ) : (
+                    <div className="w-8 h-8 rounded-full bg-[var(--accent)] text-white flex items-center justify-center text-xs font-sans font-medium">
+                      {session.user?.name?.[0]?.toUpperCase() ?? 'U'}
+                    </div>
+                  )}
+                </button>
 
                 {userMenuOpen && (
                   <div className="absolute right-0 top-full mt-2 w-52 bg-[var(--bg-primary)] border border-[var(--border)] rounded-sm shadow-card py-1 animate-slide-down z-50">
                     <div className="px-4 py-2 border-b border-[var(--border)]">
-                      <p className="text-sm font-medium truncate">{user.displayName || 'Google user'}</p>
-                      <p className="text-xs text-[var(--text-faint)] truncate">{user.email}</p>
+                      <p className="text-sm font-medium truncate">{session.user?.name}</p>
+                      <p className="text-xs text-[var(--text-faint)] truncate">{session.user?.email}</p>
                     </div>
                     <Link
                       href="/profile"
@@ -210,18 +195,18 @@ export default function Header() {
                     >
                       <BookOpen size={14} /> Saved Posts
                     </Link>
-                    <Link href="/admin" className="flex items-center gap-2 px-4 py-2 text-sm font-sans hover:bg-[var(--bg-secondary)] transition-colors" onClick={() => setUserMenuOpen(false)}>
-                      <Settings size={14} /> Dashboard
-                    </Link>
+                    {isAuthor && (
+                      <Link href="/admin/editor" className="flex items-center gap-2 px-4 py-2 text-sm font-sans hover:bg-[var(--bg-secondary)] transition-colors" onClick={() => setUserMenuOpen(false)}>
+                        <PenLine size={14} /> Write
+                      </Link>
+                    )}
+                    {isAdmin && (
+                      <Link href="/admin/dashboard" className="flex items-center gap-2 px-4 py-2 text-sm font-sans hover:bg-[var(--bg-secondary)] transition-colors" onClick={() => setUserMenuOpen(false)}>
+                        <Settings size={14} /> Admin
+                      </Link>
+                    )}
                     <button
-                      onClick={async () => {
-                        setUserMenuOpen(false);
-                        try {
-                          await logOut();
-                        } catch (error) {
-                          console.error('Sign out failed:', error);
-                        }
-                      }}
+                      onClick={() => signOut()}
                       className="w-full flex items-center gap-2 px-4 py-2 text-sm font-sans text-red-600 hover:bg-red-50 dark:hover:bg-red-950 transition-colors"
                     >
                       <LogOut size={14} /> Sign Out
@@ -234,7 +219,7 @@ export default function Header() {
                 href="/auth/signin"
                 className="hidden sm:inline-flex items-center px-4 py-1.5 text-sm font-sans font-medium text-[var(--bg-primary)] bg-[var(--text-primary)] hover:bg-[var(--accent)] transition-colors rounded-sm"
               >
-                Sign in
+                Sign In
               </Link>
             )}
 
@@ -261,17 +246,20 @@ export default function Header() {
               </Link>
             ))}
             <div className="h-px bg-[var(--border)] my-2" />
+            <p className="text-xs font-sans font-medium uppercase tracking-widest text-[var(--text-faint)] px-2 py-1">Forms</p>
+            <Suspense fallback={null}>
+              <FormsMobileLinks onNavigate={() => setMobileOpen(false)} />
+            </Suspense>
+            <div className="h-px bg-[var(--border)] my-2" />
             <Link href="/about" className="block px-2 py-2 text-sm font-sans" onClick={() => setMobileOpen(false)}>About</Link>
-            {user && (
+            {session && (
               <>
                 <Link href="/profile" className="block px-2 py-2 text-sm font-sans" onClick={() => setMobileOpen(false)}>Profile</Link>
-                <Link href="/admin" className="block px-2 py-2 text-sm font-sans" onClick={() => setMobileOpen(false)}>Dashboard</Link>
+                <Link href="/profile?tab=saved" className="block px-2 py-2 text-sm font-sans" onClick={() => setMobileOpen(false)}>Saved Posts</Link>
               </>
             )}
-            {!user && (
-              <Link href="/auth/signin" className="block px-2 py-2 text-sm font-sans font-medium text-[var(--accent)] text-left">
-                Sign in
-              </Link>
+            {!session && (
+              <Link href="/auth/signin" className="block px-2 py-2 text-sm font-sans font-medium text-[var(--accent)]" onClick={() => setMobileOpen(false)}>Sign In</Link>
             )}
           </nav>
         </div>

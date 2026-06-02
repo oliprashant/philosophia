@@ -203,7 +203,7 @@ export default async function ArticlePage({ params }: { params: { slug: string }
 
   const fullPost = normalizePost(post);
   const related = relatedRaw.map(normalizePost);
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://blogs.oliprashant.com.np';
+  const siteUrl = process.env.NEXTAUTH_URL || 'https://philosophia.blog';
   const postUrl = `${siteUrl}/blog/${post.slug}`;
 
   return (
