@@ -8,7 +8,6 @@ import type { Metadata } from 'next';
 import { ThemeProvider } from 'next-themes';
 import { Toaster } from 'react-hot-toast';
 import Script from 'next/script';
-import AuthProvider from '@/components/providers/AuthProvider';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
 import AIChatWidget from '@/components/ai/AIChatWidget';
@@ -65,7 +64,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           </>
         )}
         <ThemeProvider attribute="class" defaultTheme="light" enableSystem>
-          <AuthProvider>
           <div className="flex min-h-screen flex-col bg-[var(--bg-primary)] text-[var(--text-primary)]">
             <Header />
             <main className="flex-1">{children}</main>
@@ -85,7 +83,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               },
             }}
           />
-          </AuthProvider>
         </ThemeProvider>
       </body>
     </html>

@@ -4,7 +4,6 @@ import Link from 'next/link';
 import { format } from 'date-fns';
 import { Clock, Eye, BookOpen } from 'lucide-react';
 import type { PostFull } from '@/types';
-import { FORMS } from '@/lib/forms';
 
 const GENRE_LABELS: Record<string, string> = {
   ESSAY: 'Essay', DIALOGUE: 'Dialogue', POEM: 'Poem',
@@ -27,20 +26,9 @@ export default function ArticleHeader({ post }: { post: PostFull }) {
             {post.category.name}
           </Link>
         )}
-        {(() => {
-          const formSlug = FORMS.find(f => f.genre === post.genre)?.slug;
-          const label = GENRE_LABELS[post.genre] || post.genre;
-          return formSlug ? (
-            <Link
-              href={`/blog?form=${formSlug}`}
-              className="category-pill bg-[var(--bg-secondary)] text-[var(--text-faint)] hover:text-[var(--accent)] transition-colors"
-            >
-              {label}
-            </Link>
-          ) : (
-            <span className="category-pill bg-[var(--bg-secondary)] text-[var(--text-faint)]">{label}</span>
-          );
-        })()}
+        <span className="category-pill bg-[var(--bg-secondary)] text-[var(--text-faint)]">
+          {GENRE_LABELS[post.genre] || post.genre}
+        </span>
         {post.humour && (
           <span
             className="category-pill"

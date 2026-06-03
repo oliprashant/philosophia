@@ -1,476 +1,285 @@
 'use client';
 
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
-import { useRouter } from 'next/navigation';
-import { useSession } from 'next-auth/react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { format } from 'date-fns';
+import { useEffect, useState } from 'react';
 import {
+  BookOpen,
+  Check,
+  Facebook,
+  Instagram,
+  Loader2,
+  LogOut,
   Mail,
-  Shield,
-  Calendar,
-  Pencil,
-  Save,
-  X,
-  Upload,
-  Bookmark,
-  ThumbsUp,
   MessageSquare,
-  History,
-  Loader,
+  Pin,
+  User,
 } from 'lucide-react';
-import toast from 'react-hot-toast';
-import PostGrid from '@/components/blog/PostGrid';
-import type { PostSummary, Role } from '@/types';
+import { useAuth } from '@/hooks/useAuth';
 
 type ProfileUser = {
   id: string;
   name: string | null;
-  email: string | null;
+  email: string;
   image: string | null;
   bio: string | null;
-  role: Role;
+  facebook: string | null;
+  instagram: string | null;
+  pinterest: string | null;
+  role: 'READER' | 'AUTHOR' | 'ADMIN';
+  firebaseUid: string | null;
+  emailVerified: boolean;
   createdAt: string;
+  updatedAt: string;
+};
+
+type PostItem = {
+  id: string;
+  title: string;
+  slug: string;
+  excerpt: string | null;
+  coverImage: string | null;
+  publishedAt: string | null;
+  savedAt?: string;
+  upvotedAt?: string;
 };
 
 type CommentItem = {
   id: string;
-  text: string;
+  content: string;
   createdAt: string;
-  post: { title: string; slug: string };
+  post: { id: string; title: string; slug: string };
 };
 
-type TabKey = 'saved' | 'upvoted' | 'comments' | 'history';
-
-function parseTab(value: string | null): TabKey {
-  return value === 'saved' || value === 'upvoted' || value === 'comments' || value === 'history' ? value : 'saved';
-}
-
-const TABS: Array<{ key: TabKey; label: string; icon: ReactNode }> = [
-  { key: 'saved', label: 'Saved Posts', icon: <Bookmark size={14} /> },
-  { key: 'upvoted', label: 'Upvoted Posts', icon: <ThumbsUp size={14} /> },
-  { key: 'comments', label: 'Comments', icon: <MessageSquare size={14} /> },
-  { key: 'history', label: 'Reading History', icon: <History size={14} /> },
-];
-
-function getInitials(name?: string | null, email?: string | null) {
-  const fallback = (name || email || 'Reader').trim();
-  const words = fallback.split(/\s+/).filter(Boolean);
-  if (words.length === 0) return 'RE';
-  if (words.length === 1) return words[0].slice(0, 2).toUpperCase();
-  return `${words[0][0]}${words[1][0]}`.toUpperCase();
-}
+const tabs = [
+  { id: 'saved', label: 'Saved Posts', icon: BookOpen },
+  { id: 'upvoted', label: 'Upvoted Posts', icon: Check },
+  { id: 'comments', label: 'My Comments', icon: MessageSquare },
+] as const;
 
 export default function ProfilePage() {
-  const router = useRouter();
-  const { data: session, status } = useSession();
-
+  const { user: sessionUser, loading: authLoading, logOut } = useAuth();
   const [profile, setProfile] = useState<ProfileUser | null>(null);
-  const [profileLoading, setProfileLoading] = useState(true);
-  const [profileError, setProfileError] = useState<string | null>(null);
-
-  const [isEditing, setIsEditing] = useState(false);
-  const [editName, setEditName] = useState('');
-  const [editBio, setEditBio] = useState('');
-  const [editImage, setEditImage] = useState<string | null>(null);
-  const [savingProfile, setSavingProfile] = useState(false);
-  const [uploadingAvatar, setUploadingAvatar] = useState(false);
-
-  const [activeTab, setActiveTab] = useState<TabKey>('saved');
-  const [tabsLoading, setTabsLoading] = useState(true);
-  const [savedPosts, setSavedPosts] = useState<PostSummary[]>([]);
-  const [upvotedPosts, setUpvotedPosts] = useState<PostSummary[]>([]);
-  const [historyPosts, setHistoryPosts] = useState<PostSummary[]>([]);
+  const [savedPosts, setSavedPosts] = useState<PostItem[]>([]);
+  const [upvotedPosts, setUpvotedPosts] = useState<PostItem[]>([]);
   const [comments, setComments] = useState<CommentItem[]>([]);
+  const [activeTab, setActiveTab] = useState<(typeof tabs)[number]['id']>('saved');
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const params = new URLSearchParams(window.location.search);
-    setActiveTab(parseTab(params.get('tab')));
-  }, []);
+    let cancelled = false;
 
-  useEffect(() => {
-    if (status === 'unauthenticated') {
-      router.replace('/auth/signin?callbackUrl=/profile');
-    }
-  }, [status, router]);
-
-  useEffect(() => {
-    if (status !== 'authenticated') return;
-
-    let mounted = true;
-    const loadProfile = async () => {
+    const load = async () => {
       try {
-        setProfileLoading(true);
-        setProfileError(null);
-        const res = await fetch('/api/profile');
-        if (!res.ok) throw new Error('Failed to load profile');
-        const data = await res.json();
-        if (!mounted) return;
-        setProfile(data.user);
-        setEditName(data.user.name ?? '');
-        setEditBio(data.user.bio ?? '');
-        setEditImage(data.user.image ?? null);
-      } catch (error) {
-        console.error('Profile fetch error:', error);
-        if (!mounted) return;
-        setProfileError('Failed to load profile');
-      } finally {
-        if (mounted) setProfileLoading(false);
-      }
-    };
-
-    void loadProfile();
-    return () => {
-      mounted = false;
-    };
-  }, [status]);
-
-  useEffect(() => {
-    if (status !== 'authenticated') return;
-
-    let mounted = true;
-    const loadAllTabs = async () => {
-      try {
-        setTabsLoading(true);
-        const [savedRes, upvotedRes, historyRes, commentsRes] = await Promise.all([
-          fetch('/api/posts?saved=true'),
-          fetch('/api/posts?upvoted=true'),
-          fetch('/api/posts?history=true'),
-          fetch('/api/comments?userId=me'),
+        const [profileRes, savedRes, upvotedRes, commentsRes] = await Promise.all([
+          fetch('/api/user/profile', { cache: 'no-store' }),
+          fetch('/api/user/saved-posts', { cache: 'no-store' }),
+          fetch('/api/user/upvoted-posts', { cache: 'no-store' }),
+          fetch('/api/user/comments', { cache: 'no-store' }),
         ]);
 
-        if (!savedRes.ok || !upvotedRes.ok || !historyRes.ok || !commentsRes.ok) {
-          throw new Error('Failed to fetch one or more tabs');
+        if (!profileRes.ok) {
+          if (!cancelled) setProfile(null);
+          return;
         }
 
-        const [savedData, upvotedData, historyData, commentsData] = await Promise.all([
-          savedRes.json(),
-          upvotedRes.json(),
-          historyRes.json(),
-          commentsRes.json(),
-        ]);
+        const profilePayload = (await profileRes.json()) as { user: ProfileUser };
+        const savedPayload = savedRes.ok ? ((await savedRes.json()) as { savedPosts: PostItem[] }) : { savedPosts: [] };
+        const upvotedPayload = upvotedRes.ok ? ((await upvotedRes.json()) as { upvotedPosts: PostItem[] }) : { upvotedPosts: [] };
+        const commentsPayload = commentsRes.ok ? ((await commentsRes.json()) as { comments: CommentItem[] }) : { comments: [] };
 
-        if (!mounted) return;
+        if (cancelled) return;
 
-        setSavedPosts(savedData.items ?? []);
-        setUpvotedPosts(upvotedData.items ?? []);
-        setHistoryPosts(historyData.items ?? []);
-        setComments(
-          (commentsData.comments ?? []).map((c: any) => ({
-            id: c.id,
-            text: c.text ?? c.content ?? '',
-            createdAt: c.createdAt,
-            post: { title: c.post?.title ?? 'Untitled', slug: c.post?.slug ?? '' },
-          }))
-        );
+        setProfile(profilePayload.user);
+        setSavedPosts(savedPayload.savedPosts || []);
+        setUpvotedPosts(upvotedPayload.upvotedPosts || []);
+        setComments(commentsPayload.comments || []);
       } catch (error) {
-        console.error('Tab fetch error:', error);
-        if (!mounted) return;
-        toast.error('Failed to load profile tab data');
+        console.error('Profile load failed:', error);
+        if (!cancelled) setProfile(null);
       } finally {
-        if (mounted) setTabsLoading(false);
+        if (!cancelled) setLoading(false);
       }
     };
 
-    void loadAllTabs();
+    void load();
+
     return () => {
-      mounted = false;
+      cancelled = true;
     };
-  }, [status]);
+  }, []);
 
-  const handleAvatarUpload = async (file?: File | null) => {
-    if (!file) return;
-
-    try {
-      setUploadingAvatar(true);
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('type', 'avatar');
-
-      const res = await fetch('/api/upload', {
-        method: 'POST',
-        body: formData,
-      });
-
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.error || 'Avatar upload failed');
-      }
-
-      const data = await res.json();
-      setEditImage(data.url);
-      toast.success('Avatar uploaded');
-    } catch (error: any) {
-      console.error('Avatar upload error:', error);
-      toast.error(error?.message || 'Avatar upload failed');
-    } finally {
-      setUploadingAvatar(false);
-    }
-  };
-
-  const saveProfile = async () => {
-    try {
-      setSavingProfile(true);
-
-      const res = await fetch('/api/profile', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: editName,
-          bio: editBio,
-          image: editImage,
-        }),
-      });
-
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.error || 'Failed to update profile');
-      }
-
-      const data = await res.json();
-      setProfile(data.user);
-      setIsEditing(false);
-      toast.success('Profile updated');
-    } catch (error: any) {
-      console.error('Save profile error:', error);
-      toast.error(error?.message || 'Failed to update profile');
-    } finally {
-      setSavingProfile(false);
-    }
-  };
-
-  const cancelEdit = () => {
-    if (!profile) return;
-    setEditName(profile.name ?? '');
-    setEditBio(profile.bio ?? '');
-    setEditImage(profile.image ?? null);
-    setIsEditing(false);
-  };
-
-  const memberSince = useMemo(() => {
-    if (!profile?.createdAt) return '';
-    return `Member since ${format(new Date(profile.createdAt), 'MMMM yyyy')}`;
-  }, [profile?.createdAt]);
-
-  if (status === 'loading' || profileLoading) {
+  if (authLoading || loading) {
     return (
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 py-16 flex items-center justify-center">
-        <div className="flex items-center gap-3 text-[var(--text-faint)] font-sans">
-          <Loader size={18} className="animate-spin" />
+      <div className="mx-auto flex max-w-5xl items-center justify-center px-4 py-16">
+        <div className="flex items-center gap-3 text-[var(--text-muted)]">
+          <Loader2 className="h-4 w-4 animate-spin" />
           Loading profile...
         </div>
       </div>
     );
   }
 
-  if (profileError) {
+  if (!sessionUser || !profile) {
     return (
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 py-16 flex items-center justify-center">
-        <p className="text-sm font-sans text-red-600">Failed to load profile</p>
+      <div className="mx-auto max-w-4xl px-4 py-16 space-y-4">
+        <div className="rounded border border-[var(--border)] bg-[var(--bg-secondary)] p-6 space-y-4">
+          <div className="flex items-center gap-3 text-[var(--text-primary)]">
+            <User className="h-5 w-5" />
+            <h1 className="text-2xl font-semibold">Profile</h1>
+          </div>
+          <p className="text-sm text-[var(--text-muted)]">Sign in to view your database profile.</p>
+          <Link
+            href="/auth/signin"
+            className="inline-flex rounded-sm bg-[var(--text-primary)] px-4 py-2.5 text-sm font-medium text-[var(--bg-primary)] transition-colors hover:bg-[var(--accent)]"
+          >
+            Sign in
+          </Link>
+        </div>
       </div>
     );
   }
 
-  if (!session?.user || !profile) return null;
+  const visiblePosts: PostItem[] = activeTab === 'saved' ? savedPosts : upvotedPosts;
+  const socialLinks = [
+    profile.facebook ? { href: profile.facebook, label: 'Facebook', icon: Facebook } : null,
+    profile.instagram ? { href: profile.instagram, label: 'Instagram', icon: Instagram } : null,
+    profile.pinterest ? { href: profile.pinterest, label: 'Pinterest', icon: Pin } : null,
+  ].filter(Boolean) as Array<{ href: string; label: string; icon: typeof Facebook }>;
 
   return (
-    <div className="max-w-6xl mx-auto px-4 sm:px-6 py-10 lg:py-14">
-      <h1 className="text-4xl font-bold mb-8" style={{ fontFamily: 'var(--font-cormorant)' }}>
-        My Profile
-      </h1>
-
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-        <aside className="lg:col-span-1">
-          <div className="border border-[var(--border)] bg-[var(--bg-secondary)] p-6 space-y-5 lg:sticky top-24 shadow-sm">
-            <div className="flex items-center gap-4">
-              {((isEditing ? editImage : profile.image) || '').trim() ? (
-                <Image
-                  src={(isEditing ? editImage : profile.image) as string}
-                  alt={profile.name ?? 'Profile image'}
-                  width={72}
-                  height={72}
-                  className="rounded-full border border-[var(--border)] object-cover"
-                />
-              ) : (
-                <div className="w-[72px] h-[72px] rounded-full bg-gradient-to-br from-[var(--accent)] to-sky-600 text-white flex items-center justify-center text-xl font-sans">
-                  {getInitials(profile.name, profile.email)}
-                </div>
-              )}
-
-              <div>
-                <p className="text-xl font-semibold text-[var(--text-primary)]" style={{ fontFamily: 'var(--font-cormorant)' }}>
-                  {profile.name || 'Unnamed Reader'}
-                </p>
-                <p className="text-sm text-[var(--text-faint)] font-sans flex items-center gap-1.5">
-                  <Mail size={14} /> {profile.email}
-                </p>
-              </div>
-            </div>
-
-            {!isEditing ? (
-              <>
-                <div className="space-y-2">
-                  <p className="text-xs uppercase tracking-widest text-[var(--text-faint)] font-sans">Role</p>
-                  <p className="inline-flex items-center gap-2 px-2.5 py-1 border border-[var(--border)] text-sm font-sans text-[var(--text-primary)]">
-                    <Shield size={14} /> {profile.role}
-                  </p>
-                </div>
-
-                {profile.bio && (
-                  <div className="space-y-2">
-                    <p className="text-xs uppercase tracking-widest text-[var(--text-faint)] font-sans">Bio</p>
-                    <p className="text-sm font-sans text-[var(--text-primary)] leading-relaxed">{profile.bio}</p>
-                  </div>
-                )}
-
-                <p className="text-sm font-sans text-[var(--text-faint)] flex items-center gap-2">
-                  <Calendar size={14} /> {memberSince}
-                </p>
-
-                <button
-                  onClick={() => setIsEditing(true)}
-                  className="w-full inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-sans border border-[var(--border)] hover:border-[var(--accent)] hover:text-[var(--accent)] transition-colors"
-                >
-                  <Pencil size={14} /> Edit Profile
-                </button>
-              </>
+    <div className="mx-auto max-w-5xl px-4 py-12 space-y-8">
+      <div className="border border-[var(--border)] bg-[var(--bg-secondary)] p-6 shadow-sm">
+        <div className="flex flex-col gap-6 md:flex-row md:items-start md:justify-between">
+          <div className="flex items-start gap-4">
+            {profile.image ? (
+              <Image
+                src={profile.image}
+                alt={profile.name || profile.email}
+                width={72}
+                height={72}
+                className="h-16 w-16 rounded-full object-cover"
+              />
             ) : (
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-xs font-sans text-[var(--text-faint)] mb-1">Name</label>
-                  <input
-                    type="text"
-                    value={editName}
-                    onChange={e => setEditName(e.target.value)}
-                    className="w-full px-3 py-2 text-sm font-sans bg-[var(--bg-primary)] border border-[var(--border)] focus:outline-none focus:border-[var(--accent)]"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-sans text-[var(--text-faint)] mb-1">Bio</label>
-                  <textarea
-                    rows={4}
-                    value={editBio}
-                    onChange={e => setEditBio(e.target.value)}
-                    className="w-full px-3 py-2 text-sm font-sans bg-[var(--bg-primary)] border border-[var(--border)] focus:outline-none focus:border-[var(--accent)] resize-none"
-                  />
-                </div>
-
-                <label className="w-full inline-flex items-center justify-center gap-2 px-3 py-2 text-sm font-sans border border-[var(--border)] hover:border-[var(--accent)] cursor-pointer transition-colors">
-                  {uploadingAvatar ? <Loader size={14} className="animate-spin" /> : <Upload size={14} />}
-                  {uploadingAvatar ? 'Uploading...' : 'Upload Profile Picture'}
-                  <input
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    onChange={e => void handleAvatarUpload(e.target.files?.[0])}
-                    disabled={uploadingAvatar}
-                  />
-                </label>
-
-                <div className="flex gap-2">
-                  <button
-                    onClick={saveProfile}
-                    disabled={savingProfile}
-                    className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-sans bg-[var(--text-primary)] text-[var(--bg-primary)] hover:bg-[var(--accent)] disabled:opacity-60 transition-colors"
-                  >
-                    {savingProfile ? <Loader size={14} className="animate-spin" /> : <Save size={14} />}
-                    Save
-                  </button>
-                  <button
-                    onClick={cancelEdit}
-                    disabled={savingProfile}
-                    className="inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-sans border border-[var(--border)] hover:border-[var(--accent)] disabled:opacity-60 transition-colors"
-                  >
-                    <X size={14} /> Cancel
-                  </button>
-                </div>
+              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-[var(--bg-primary)] text-xl font-semibold text-[var(--text-primary)]">
+                {(profile.name || profile.email || 'U').slice(0, 1).toUpperCase()}
               </div>
             )}
-          </div>
-        </aside>
 
-        <section className="lg:col-span-3">
-          <div className="border border-[var(--border)] bg-[var(--bg-primary)] shadow-sm">
-            <div className="border-b border-[var(--border)] p-2 flex flex-wrap gap-2">
-              {TABS.map(tab => (
-                <button
-                  key={tab.key}
-                  onClick={() => setActiveTab(tab.key)}
-                  className={`inline-flex items-center gap-2 px-3 py-2 text-sm font-sans transition-colors ${
-                    activeTab === tab.key
-                      ? 'bg-[var(--accent)] text-white'
-                      : 'text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-secondary)]'
-                  }`}
-                >
-                  {tab.icon}
-                  {tab.label}
-                </button>
-              ))}
-            </div>
+            <div>
+              <h1 className="text-3xl font-semibold text-[var(--text-primary)]" style={{ fontFamily: 'var(--font-cormorant)' }}>
+                {profile.name || 'Member'}
+              </h1>
+              <p className="text-sm text-[var(--text-muted)]">Database-backed profile</p>
+              <p className="mt-1 text-xs text-[var(--text-faint)]">Signed in as {profile.email}</p>
+              <p className="mt-3 max-w-2xl text-sm text-[var(--text-secondary)]">
+                {profile.bio || 'No bio yet.'}
+              </p>
 
-            <div className="p-5 sm:p-6">
-              {tabsLoading ? (
-                <div className="py-12 flex items-center justify-center gap-3 text-[var(--text-faint)] font-sans">
-                  <Loader size={18} className="animate-spin" />
-                  Loading...
+              {socialLinks.length ? (
+                <div className="mt-4 flex flex-wrap gap-2">
+                  {socialLinks.map(({ href, label, icon: Icon }) => (
+                    <a
+                      key={label}
+                      href={href}
+                      target="_blank"
+                      rel="noreferrer noopener"
+                      aria-label={label}
+                      className="inline-flex items-center gap-2 rounded-full border border-[var(--border)] px-3 py-2 text-sm text-[var(--text-primary)] transition-colors hover:border-[var(--accent)] hover:text-[var(--accent)]"
+                    >
+                      <Icon size={14} />
+                      <span>{label}</span>
+                    </a>
+                  ))}
                 </div>
-              ) : (
-                <>
-                  {activeTab === 'saved' &&
-                    (savedPosts.length ? (
-                      <PostGrid posts={savedPosts} />
-                    ) : (
-                      <p className="text-sm font-sans text-[var(--text-faint)] py-10 text-center">You have no saved posts yet.</p>
-                    ))}
-
-                  {activeTab === 'upvoted' &&
-                    (upvotedPosts.length ? (
-                      <PostGrid posts={upvotedPosts} />
-                    ) : (
-                      <p className="text-sm font-sans text-[var(--text-faint)] py-10 text-center">
-                        You have not upvoted any posts yet.
-                      </p>
-                    ))}
-
-                  {activeTab === 'history' &&
-                    (historyPosts.length ? (
-                      <PostGrid posts={historyPosts} />
-                    ) : (
-                      <p className="text-sm font-sans text-[var(--text-faint)] py-10 text-center">Your reading history is empty.</p>
-                    ))}
-
-                  {activeTab === 'comments' &&
-                    (comments.length ? (
-                      <div className="space-y-3">
-                        {comments.map(comment => (
-                          <article key={comment.id} className="border border-[var(--border)] p-4 bg-[var(--bg-secondary)]">
-                            <Link
-                              href={`/blog/${comment.post.slug}`}
-                              className="text-sm font-medium text-[var(--accent)] hover:underline"
-                              style={{ fontFamily: 'var(--font-cormorant)' }}
-                            >
-                              {comment.post.title}
-                            </Link>
-                            <p className="text-sm font-sans text-[var(--text-primary)] mt-2 leading-relaxed">{comment.text}</p>
-                            <p className="text-xs text-[var(--text-faint)] font-sans mt-2">
-                              {format(new Date(comment.createdAt), 'MMM d, yyyy')}
-                            </p>
-                          </article>
-                        ))}
-                      </div>
-                    ) : (
-                      <p className="text-sm font-sans text-[var(--text-faint)] py-10 text-center">
-                        You have not posted any comments yet.
-                      </p>
-                    ))}
-                </>
-              )}
+              ) : null}
             </div>
           </div>
-        </section>
+
+          <div className="flex flex-wrap items-center gap-3">
+            <Link
+              href="/profile/edit"
+              className="inline-flex items-center gap-2 rounded-sm bg-[var(--text-primary)] px-4 py-2.5 text-sm font-medium text-[var(--bg-primary)] transition-colors hover:bg-[var(--accent)]"
+            >
+              <User size={14} /> Edit Profile
+            </Link>
+            <button
+              type="button"
+              onClick={async () => {
+                await logOut();
+                window.location.href = '/auth/signin';
+              }}
+              className="inline-flex items-center gap-2 rounded-sm border border-[var(--border)] px-4 py-2.5 text-sm font-medium text-[var(--text-primary)] transition-colors hover:border-[var(--accent)]"
+            >
+              <LogOut size={14} /> Sign Out
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div className="border border-[var(--border)] bg-[var(--bg-secondary)] p-4 shadow-sm">
+        <div className="flex flex-wrap gap-2">
+          {tabs.map(tab => {
+            const Icon = tab.icon;
+            const active = activeTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setActiveTab(tab.id)}
+                className={`inline-flex items-center gap-2 rounded-sm px-4 py-2 text-sm font-medium transition-colors ${
+                  active
+                    ? 'bg-[var(--text-primary)] text-[var(--bg-primary)]'
+                    : 'border border-[var(--border)] text-[var(--text-primary)] hover:border-[var(--accent)]'
+                }`}
+              >
+                <Icon size={14} /> {tab.label}
+              </button>
+            );
+          })}
+        </div>
+
+        <div className="mt-5 space-y-3">
+          {activeTab === 'comments' ? (
+            comments.length ? (
+              comments.map(comment => (
+                <div key={comment.id} className="rounded border border-[var(--border)] bg-[var(--bg-primary)] p-4">
+                  <p className="text-sm text-[var(--text-primary)]">{comment.content}</p>
+                  <div className="mt-2 text-xs text-[var(--text-faint)]">On {comment.post.title}</div>
+                </div>
+              ))
+            ) : (
+              <div className="rounded border border-dashed border-[var(--border)] p-6 text-sm text-[var(--text-muted)]">
+                You have not written any comments yet.
+              </div>
+            )
+          ) : visiblePosts.length ? (
+            visiblePosts.map(item => (
+              <Link
+                key={item.id}
+                href={`/blog/${item.slug}`}
+                className="block rounded border border-[var(--border)] bg-[var(--bg-primary)] p-4 transition-colors hover:border-[var(--accent)]"
+              >
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
+                  {item.coverImage ? (
+                    <Image src={item.coverImage} alt={item.title} width={120} height={80} className="h-20 w-32 rounded object-cover" />
+                  ) : null}
+                  <div>
+                    <h3 className="text-sm font-semibold text-[var(--text-primary)]">{item.title}</h3>
+                    <p className="mt-1 text-xs text-[var(--text-muted)]">{item.excerpt || 'No excerpt available.'}</p>
+                    <div className="mt-2 text-xs text-[var(--text-faint)]">
+                      {item.savedAt ? `Saved ${new Date(item.savedAt).toLocaleDateString()}` : `Upvoted ${new Date(item.upvotedAt || '').toLocaleDateString()}`}
+                    </div>
+                  </div>
+                </div>
+              </Link>
+            ))
+          ) : (
+            <div className="rounded border border-dashed border-[var(--border)] p-6 text-sm text-[var(--text-muted)]">
+              No items in this section yet.
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

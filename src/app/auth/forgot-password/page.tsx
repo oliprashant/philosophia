@@ -2,13 +2,14 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { Loader2, Mail } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { Loader2, Mail, ArrowLeft } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 export default function ForgotPasswordPage() {
+  const router = useRouter();
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
-  const [done, setDone] = useState(false);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -20,11 +21,15 @@ export default function ForgotPasswordPage() {
         body: JSON.stringify({ email }),
       });
 
-      if (!res.ok) throw new Error();
-      setDone(true);
-      toast.success('If that email exists, we sent a reset link');
-    } catch {
-      toast.error('Could not process request');
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Could not process request');
+      }
+
+      toast.success("We've sent a password reset link to your email");
+      router.push(`/auth/verify-otp?email=${encodeURIComponent(email)}`);
+    } catch (error: any) {
+      toast.error(error.message || 'Could not process request');
     } finally {
       setLoading(false);
     }
@@ -39,50 +44,44 @@ export default function ForgotPasswordPage() {
               Philosophia
             </h1>
           </Link>
-          <p className="text-sm text-[var(--text-faint)] mt-2 font-sans">Reset your password</p>
+          <p className="text-sm text-[var(--text-faint)] mt-2 font-sans">Forgot your password?</p>
         </div>
 
-        <div className="border border-[var(--border)] p-8 bg-[var(--bg-primary)]">
-          {done ? (
-            <div className="space-y-4">
-              <p className="text-sm font-sans text-[var(--text-muted)]">
-                If an account exists for this email, a reset link has been sent.
-              </p>
-              <Link href="/auth/signin" className="text-sm font-sans text-[var(--accent)] hover:underline">
-                Back to sign in
+        <div className="border border-[var(--border)] rounded-xl p-8 bg-[var(--bg-primary)] shadow-sm">
+          <form onSubmit={submit} className="space-y-4">
+            <div>
+              <label className="block text-xs font-sans font-medium text-[var(--text-muted)] mb-1.5">Email</label>
+              <div className="relative">
+                <Mail size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-faint)]" />
+                <input
+                  type="email"
+                  value={email}
+                  onChange={e => setEmail(e.target.value)}
+                  required
+                  className="w-full pl-10 pr-4 py-2.5 text-sm font-sans bg-[var(--bg-secondary)] border border-[var(--border)] rounded-lg focus:outline-none focus:border-[var(--accent)] transition-colors"
+                  placeholder="you@example.com"
+                />
+              </div>
+            </div>
+
+            <p className="text-xs font-sans text-[var(--text-faint)] leading-5">
+              We will send both a password reset link and an 8-digit code. Use either one to continue.
+            </p>
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full py-2.5 text-sm font-sans font-medium rounded-lg bg-[var(--text-primary)] text-[var(--bg-primary)] hover:bg-[var(--accent)] disabled:opacity-60 transition-colors flex items-center justify-center gap-2"
+            >
+              {loading ? <><Loader2 size={15} className="animate-spin" /> Sending...</> : 'Send reset link'}
+            </button>
+
+            <div className="text-center">
+              <Link href="/auth/signin" className="inline-flex items-center gap-2 text-xs font-sans text-[var(--text-faint)] hover:text-[var(--accent)] transition-colors">
+                <ArrowLeft size={14} /> Back to sign in
               </Link>
             </div>
-          ) : (
-            <form onSubmit={submit} className="space-y-4">
-              <div>
-                <label className="block text-xs font-sans font-medium text-[var(--text-muted)] mb-1.5">Email</label>
-                <div className="relative">
-                  <Mail size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-faint)]" />
-                  <input
-                    type="email"
-                    value={email}
-                    onChange={e => setEmail(e.target.value)}
-                    required
-                    className="w-full pl-10 pr-4 py-2.5 text-sm font-sans bg-[var(--bg-secondary)] border border-[var(--border)] focus:outline-none focus:border-[var(--accent)] transition-colors"
-                    placeholder="you@example.com"
-                  />
-                </div>
-              </div>
-
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full py-2.5 text-sm font-sans font-medium bg-[var(--text-primary)] text-[var(--bg-primary)] hover:bg-[var(--accent)] disabled:opacity-60 transition-colors flex items-center justify-center gap-2"
-              >
-                {loading ? <><Loader2 size={15} className="animate-spin" /> Sending…</> : 'Send reset link'}
-              </button>
-
-              <p className="text-center text-sm font-sans text-[var(--text-muted)] mt-4">
-                Remembered your password?{' '}
-                <Link href="/auth/signin" className="text-[var(--accent)] hover:underline">Sign in</Link>
-              </p>
-            </form>
-          )}
+          </form>
         </div>
       </div>
     </div>

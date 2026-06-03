@@ -1,114 +1,112 @@
-// src/lib/auth.ts
-// NextAuth v5 (beta) configuration
-// Docs: https://authjs.dev/getting-started/migrating-to-v5
+import crypto from 'node:crypto';
+import { cookies } from 'next/headers';
+import { NextResponse } from 'next/server';
+import { prisma } from '@/lib/prisma';
 
-import NextAuth from 'next-auth';
-import { PrismaAdapter } from '@auth/prisma-adapter';
-import GoogleProvider from 'next-auth/providers/google';
-import GitHubProvider from 'next-auth/providers/github'; 
-import CredentialsProvider from 'next-auth/providers/credentials';
-import bcrypt from 'bcryptjs';
-import { prisma } from './prisma';
-import type { NextAuthConfig } from 'next-auth';
+const SESSION_COOKIE_NAME = 'philosophia_session';
+const SESSION_MAX_AGE_SECONDS = 60 * 60 * 24 * 30;
 
-export const authConfig: NextAuthConfig = {
-  adapter: PrismaAdapter(prisma),
-
-  // Custom sign-in page
-  pages: {
-    signIn: '/auth/signin',
-    error: '/auth/error',
-  },
-
-  session: {
-    strategy: 'jwt', // required for credentials provider
-  },
-
-  providers: [
-    // ── Google OAuth ──────────────────────────────────────────────────────────
-    GoogleProvider({
-      clientId: process.env.GOOGLE_CLIENT_ID!,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
-      authorization: { params: { prompt: 'consent', access_type: 'offline', response_type: 'code' } },
-    }),
-
-     // ── GitHub OAuth ──────────────────────────────  ← add this block
-    GitHubProvider({
-      clientId: process.env.GITHUB_CLIENT_ID!,
-      clientSecret: process.env.GITHUB_CLIENT_SECRET!,
-    }),
-
-    // ── Credentials (email + password) ────────────────────────────────────────
-    CredentialsProvider({
-      name: 'credentials',
-      credentials: {
-        email: { label: 'Email', type: 'email' },
-        password: { label: 'Password', type: 'password' },
-      },
-      async authorize(credentials) {
-        if (!credentials?.email || !credentials?.password) return null;
-
-        const user = await prisma.user.findUnique({
-          where: { email: credentials.email as string },
-        });
-
-        if (!user || !user.password) return null;
-
-        const passwordValid = await bcrypt.compare(
-          credentials.password as string,
-          user.password
-        );
-
-        if (!passwordValid) return null;
-
-        return {
-          id: user.id,
-          email: user.email,
-          name: user.name,
-          image: user.image,
-          role: user.role,
-        };
-      },
-    }),
-  ],
-
-  callbacks: {
-    // Attach role + id to the JWT token
-    async jwt({ token, user }) {
-  if (user) {
-    token.id = user.id;
-    token.role = (user as any).role;
-  }
-  // Always re-fetch role from DB to get latest value
-  if (token.id) {
-    const dbUser = await prisma.user.findUnique({
-      where: { id: token.id as string },
-      select: { role: true },
-    });
-    token.role = dbUser?.role ?? 'READER';
-  }
-  return token;
-},
-
-    // Expose role + id on the client-side session object
-    async session({ session, token }) {
-      if (session.user) {
-        (session.user as any).id = token.id as string;
-        (session.user as any).role = token.role as string;
-      }
-      return session;
-    },
-  },
-
-  events: {
-    // After first OAuth sign-in, ensure user has a role
-    async createUser({ user }) {
-      await prisma.user.update({
-        where: { id: user.id },
-        data: { role: 'READER' },
-      });
-    },
-  },
+export type SessionUser = {
+  id: string;
+  name: string | null;
+  email: string;
+  image: string | null;
+  bio: string | null;
+  facebook: string | null;
+  instagram: string | null;
+  pinterest: string | null;
+  role: 'READER' | 'AUTHOR' | 'ADMIN';
+  firebaseUid: string | null;
+  emailVerified: boolean;
+  createdAt: string;
+  updatedAt: string;
 };
 
-export const { handlers, signIn, signOut, auth } = NextAuth(authConfig);
+export type AuthSession = { user: SessionUser } | null;
+
+export function serializeUser(user: {
+  id: string;
+  name: string | null;
+  email: string;
+  image: string | null;
+  bio: string | null;
+  facebook?: string | null;
+  instagram?: string | null;
+  pinterest?: string | null;
+  role: string;
+  firebaseUid: string | null;
+  emailVerified: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}): SessionUser {
+  return {
+    id: user.id,
+    name: user.name,
+    email: user.email,
+    image: user.image,
+    bio: user.bio,
+    facebook: user.facebook ?? null,
+    instagram: user.instagram ?? null,
+    pinterest: user.pinterest ?? null,
+    role: user.role as SessionUser['role'],
+    firebaseUid: user.firebaseUid,
+    emailVerified: user.emailVerified,
+    createdAt: user.createdAt.toISOString(),
+    updatedAt: user.updatedAt.toISOString(),
+  };
+}
+
+export async function createSessionForUser(userId: string) {
+  const sessionToken = crypto.randomBytes(32).toString('hex');
+  const expires = new Date(Date.now() + SESSION_MAX_AGE_SECONDS * 1000);
+
+  await prisma.session.create({
+    data: {
+      sessionToken,
+      userId,
+      expires,
+    },
+  });
+
+  return { sessionToken, expires };
+}
+
+export function setSessionCookie(response: NextResponse, sessionToken: string, expires: Date) {
+  response.cookies.set(SESSION_COOKIE_NAME, sessionToken, {
+    httpOnly: true,
+    sameSite: 'lax',
+    secure: process.env.NODE_ENV === 'production',
+    path: '/',
+    expires,
+  });
+}
+
+export function clearSessionCookie(response: NextResponse) {
+  response.cookies.set(SESSION_COOKIE_NAME, '', {
+    httpOnly: true,
+    sameSite: 'lax',
+    secure: process.env.NODE_ENV === 'production',
+    path: '/',
+    expires: new Date(0),
+  });
+}
+
+export async function auth(): Promise<AuthSession> {
+  const cookieStore = await cookies();
+  const sessionToken = cookieStore.get(SESSION_COOKIE_NAME)?.value;
+  if (!sessionToken) return null;
+
+  const session = await prisma.session.findUnique({
+    where: { sessionToken },
+    include: { user: true },
+  });
+
+  if (!session) return null;
+
+  if (session.expires.getTime() <= Date.now()) {
+    await prisma.session.delete({ where: { sessionToken } }).catch(() => undefined);
+    return null;
+  }
+
+  return { user: serializeUser(session.user) };
+}

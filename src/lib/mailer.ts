@@ -33,6 +33,11 @@ export async function sendEmail({
     return { sent: false };
   }
 
-  await transporter.sendMail({ from, to, subject, html });
-  return { sent: true };
+  try {
+    await transporter.sendMail({ from, to, subject, html });
+    return { sent: true };
+  } catch (err) {
+    console.error('[sendEmail] error', err);
+    return { sent: false, error: err?.message || String(err) };
+  }
 }

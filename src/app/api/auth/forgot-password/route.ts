@@ -1,9 +1,7 @@
-// src/app/api/auth/forgot-password/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
-import { sendEmail } from '@/lib/mailer';
-import { randomBytes, createHash } from 'crypto';
 import { z } from 'zod';
+import { prisma } from '@/lib/prisma';
+import { getSupabaseServerClient } from '@/lib/supabase/server';
 
 const schema = z.object({
   email: z.string().email(),
@@ -11,70 +9,66 @@ const schema = z.object({
 
 export async function POST(req: NextRequest) {
   try {
-    const db = prisma as any;
     const body = await req.json();
     const parsed = schema.safeParse(body);
+
     if (!parsed.success) {
       return NextResponse.json({ error: 'Invalid email' }, { status: 400 });
     }
 
     const email = parsed.data.email.toLowerCase().trim();
-
     const user = await prisma.user.findUnique({
       where: { email },
-      select: { id: true, email: true, name: true },
+      select: { email: true, firebaseUid: true, password: true, passwordHash: true, supabaseId: true },
     });
 
-    // Always return success to avoid user enumeration.
-    if (!user || !user.email) {
+    if (!user?.email) {
       return NextResponse.json({ success: true });
     }
 
-    const rawToken = randomBytes(32).toString('hex');
-    const tokenHash = createHash('sha256').update(rawToken).digest('hex');
-    const expiresAt = new Date(Date.now() + 1000 * 60 * 30);
+    const hasLocalPassword = Boolean(user.passwordHash || user.password);
 
-    await db.passwordResetToken.deleteMany({
-      where: { userId: user.id, usedAt: null },
-    });
+    if (user.firebaseUid && !hasLocalPassword) {
+      return NextResponse.json(
+        {
+          error: 'This account uses Google sign-in. Please sign in with Google. No password reset is available.',
+        },
+        { status: 400 }
+      );
+    }
 
-    await db.passwordResetToken.create({
-      data: {
-        userId: user.id,
-        tokenHash,
-        expiresAt,
-      },
-    });
+    if (!hasLocalPassword) {
+      return NextResponse.json({ success: true });
+    }
 
-    const baseUrl = process.env.NEXTAUTH_URL || new URL(req.url).origin;
-    const resetUrl = `${baseUrl}/auth/reset-password?token=${rawToken}`;
+    const supabase = getSupabaseServerClient();
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXTAUTH_URL || new URL(req.url).origin;
+    const redirectTo = `${appUrl}/auth/reset-password`;
 
-    const html = `
-      <div style="font-family: Georgia, serif; line-height: 1.6; color: #2b2b2b;">
-        <h2 style="margin-bottom: 8px;">Reset your Philosophia password</h2>
-        <p>Hello ${user.name ?? 'Reader'},</p>
-        <p>We received a request to reset your password. Click the button below to continue:</p>
-        <p style="margin: 24px 0;">
-          <a href="${resetUrl}" style="background:#1f1408;color:#fff;padding:10px 18px;text-decoration:none;display:inline-block;">Reset Password</a>
-        </p>
-        <p>This link expires in 30 minutes.</p>
-        <p>If you did not request this, you can ignore this email.</p>
-      </div>
-    `;
+    if (!user.supabaseId) {
+      console.warn('[Forgot Password POST] User missing supabaseId, attempting reset anyway', { email });
+    }
 
-    const emailResult = await sendEmail({
-      to: user.email,
-      subject: 'Reset your Philosophia password',
-      html,
-    });
+    const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo });
 
-    if (!emailResult.sent) {
-      console.log('[Forgot Password] SMTP not configured. Reset link:', resetUrl);
+    if (error) {
+      console.error('[Forgot Password POST] Supabase error:', {
+        email,
+        supabaseId: user.supabaseId,
+        message: error.message,
+        status: error.status,
+      });
+
+      if (error.status === 429 || /40 seconds/i.test(error.message)) {
+        return NextResponse.json({ success: true, cooldown: true });
+      }
+
+      return NextResponse.json({ error: 'Could not send reset link' }, { status: 500 });
     }
 
     return NextResponse.json({ success: true });
-  } catch (err) {
-    console.error('[Forgot Password POST]', err);
-    return NextResponse.json({ error: 'Failed to process request' }, { status: 500 });
+  } catch (error) {
+    console.error('[Forgot Password POST]', error);
+    return NextResponse.json({ error: 'Could not process request' }, { status: 500 });
   }
 }

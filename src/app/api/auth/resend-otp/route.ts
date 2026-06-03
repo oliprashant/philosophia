@@ -1,11 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
+import { sendEmail } from '@/lib/mailer';
 import { getSupabaseServerClient } from '@/lib/supabase/server';
 
 const schema = z.object({
   email: z.string().email(),
 });
+
+function generateOtp(length = 8) {
+  const max = 10 ** length;
+  return String(Math.floor(Math.random() * max)).padStart(length, '0');
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -18,35 +24,40 @@ export async function POST(req: NextRequest) {
 
     const email = parsed.data.email.toLowerCase().trim();
 
-    const user = await prisma.user.findUnique({
-      where: { email },
-      select: { email: true, password: true },
-    });
+    // If this is an unverified local account, resend registration OTP from Prisma.
+    const user = await prisma.user.findUnique({ where: { email } });
+    if (user && !user.emailVerified) {
+      const otp = generateOtp();
+      const expiresAt = new Date(Date.now() + 1000 * 60 * 30);
 
-    // Keep enumeration protection behavior aligned with forgot-password.
-    if (!user?.email || !user.password) {
-      return NextResponse.json({ success: true });
+      await prisma.verificationToken.deleteMany({ where: { identifier: email } });
+      await prisma.verificationToken.create({
+        data: {
+          identifier: email,
+          token: otp,
+          expires: expiresAt,
+        },
+      });
+
+      await sendEmail({
+        to: email,
+        subject: 'Your Philosophia verification code',
+        html: `<p>Your verification code is <strong>${otp}</strong>.</p><p>This code expires in 30 minutes.</p>`,
+      });
+
+      return NextResponse.json({ success: true, mode: 'registration' });
     }
 
+    // Otherwise, resend recovery OTP/link from Supabase using resetPasswordForEmail.
     const supabase = getSupabaseServerClient();
-    const resendResult = await supabase.auth.resend({
-      // Cast to allow recovery type across Supabase SDK unions.
-      type: 'recovery' as any,
-      email,
-    });
-
-    const fallbackResult = resendResult.error
-      ? await supabase.auth.resetPasswordForEmail(email)
-      : { error: null };
-
-    const error = resendResult.error ?? fallbackResult.error;
+    const { error } = await supabase.auth.resetPasswordForEmail(email);
 
     if (error) {
       console.error('[Resend OTP POST] Supabase error:', error.message);
-      return NextResponse.json({ error: 'Could not resend verification code' }, { status: 500 });
+      return NextResponse.json({ error: 'Could not resend reset link' }, { status: 500 });
     }
 
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ success: true, mode: 'recovery' });
   } catch (error) {
     console.error('[Resend OTP POST]', error);
     return NextResponse.json({ error: 'Could not process request' }, { status: 500 });
