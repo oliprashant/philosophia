@@ -18,6 +18,8 @@ import {
   X,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
+import FormsDropdown from '@/components/layout/FormsDropdown';
+import { FORMS } from '@/lib/forms';
 
 const NAV_CATEGORIES = [
   { name: 'Ethics', slug: 'ethics' },
@@ -25,13 +27,6 @@ const NAV_CATEGORIES = [
   { name: 'Existentialism', slug: 'existentialism' },
   { name: 'Epistemology', slug: 'epistemology' },
   { name: 'Aesthetics', slug: 'aesthetics' },
-];
-
-const NAV_GENRES = [
-  { name: 'Essays', slug: 'ESSAY' },
-  { name: 'Dialogues', slug: 'DIALOGUE' },
-  { name: 'Poems', slug: 'POEM' },
-  { name: 'Aphorisms', slug: 'APHORISM' },
 ];
 
 export default function Header() {
@@ -120,6 +115,8 @@ export default function Header() {
                 </div>
               )}
             </div>
+
+            <FormsDropdown />
 
             <Link
               href="/about"
@@ -258,6 +255,13 @@ export default function Header() {
             {NAV_CATEGORIES.map(cat => (
               <Link key={cat.slug} href={`/blog?category=${cat.slug}`} className="block px-2 py-2 text-sm font-sans text-[var(--text-secondary)] hover:text-[var(--accent)]" onClick={() => setMobileOpen(false)}>
                 {cat.name}
+              </Link>
+            ))}
+            <div className="h-px bg-[var(--border)] my-2" />
+            <p className="text-xs font-sans font-medium uppercase tracking-widest text-[var(--text-faint)] px-2 py-1">Forms</p>
+            {FORMS.map(form => (
+              <Link key={form.slug} href={`/blog?form=${form.slug}`} className="block px-2 py-2 text-sm font-sans text-[var(--text-secondary)] hover:text-[var(--accent)]" onClick={() => setMobileOpen(false)}>
+                {form.name}
               </Link>
             ))}
             <div className="h-px bg-[var(--border)] my-2" />

@@ -123,47 +123,42 @@ function ResetPasswordContent() {
   };
 
   const submit = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
+  event.preventDefault();
 
-    if (password.length < 8) {
-      toast.error('Password must be at least 8 characters');
-      return;
-    }
+  if (password.length < 8) {
+    toast.error('Password must be at least 8 characters');
+    return;
+  }
 
-    if (password !== confirmPassword) {
-      toast.error('Passwords do not match');
-      return;
-    }
+  if (password !== confirmPassword) {
+    toast.error('Passwords do not match');
+    return;
+  }
 
-    setLoading(true);
+  setLoading(true);
 
-    try {
-      const fallbackRefreshToken = sessionStorage.getItem('reset_refresh_token') || undefined;
+  try {
+    const supabase = getSupabaseBrowserClient();
+    
+    // Update the password directly using Supabase
+    const { error } = await supabase.auth.updateUser({
+      password: password
+    });
 
-      const res = await fetch('/api/auth/reset-password', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          token: accessToken || token,
-          newPassword: password,
-          refreshToken: refreshToken || fallbackRefreshToken,
-        }),
-      });
+    if (error) throw error;
 
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.error || 'Could not reset password');
-      }
-
-  sessionStorage.removeItem('reset_refresh_token');
-      toast.success('Password reset successful');
-      router.push('/auth/signin?reset=true');
-    } catch (error: any) {
-      toast.error(error.message || 'Could not reset password');
-    } finally {
-      setLoading(false);
-    }
-  };
+    // Sign out to clear the recovery session
+    await supabase.auth.signOut();
+    
+    sessionStorage.removeItem('reset_refresh_token');
+    toast.success('Password reset successful');
+    router.push('/auth/signin?reset=true');
+  } catch (error: any) {
+    toast.error(error.message || 'Could not reset password');
+  } finally {
+    setLoading(false);
+  }
+};
 
   return (
     <div className="min-h-screen flex items-center justify-center px-4 py-16 bg-[var(--bg-primary)]">

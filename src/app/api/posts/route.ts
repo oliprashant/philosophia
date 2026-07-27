@@ -7,6 +7,7 @@ import { prisma } from '@/lib/prisma';
 import { auth } from '@/lib/auth';
 import slugify from 'slugify';
 import { z } from 'zod';
+import { formSlugToGenre } from '@/lib/forms';
 
 // Shared post include for consistent responses
 const POST_INCLUDE = {
@@ -32,6 +33,7 @@ export async function GET(req: NextRequest) {
   const q = searchParams.get('q') || '';
   const category = searchParams.get('category') || '';
   const genre = searchParams.get('genre') || '';
+  const formSlug = searchParams.get('formSlug') || searchParams.get('form') || '';
   const humour = searchParams.get('humour') || '';
   const tag = searchParams.get('tag') || '';
   const author = searchParams.get('author') || '';
@@ -57,6 +59,13 @@ export async function GET(req: NextRequest) {
   }
   if (category) where.category = { slug: category };
   if (genre) where.genre = genre.toUpperCase();
+  if (formSlug) {
+    const formGenre = formSlugToGenre(formSlug);
+    if (!formGenre) {
+      return NextResponse.json({ items: [], total: 0, page, limit, hasMore: false });
+    }
+    where.genre = formGenre;
+  }
   if (humour) where.humour = { slug: humour };
   if (tag) where.tags = { some: { tag: { slug: tag } } };
   if (author) where.authorId = author;

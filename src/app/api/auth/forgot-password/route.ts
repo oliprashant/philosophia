@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
 import { getSupabaseServerClient } from '@/lib/supabase/server';
+import { sendLocalPasswordResetEmail } from '@/lib/password-reset';
 
 const schema = z.object({
   email: z.string().email(),
@@ -41,7 +42,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: true });
     }
 
-    const supabase = getSupabaseServerClient();
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXTAUTH_URL || new URL(req.url).origin;
     const redirectTo = `${appUrl}/auth/reset-password`;
 
@@ -49,9 +49,14 @@ export async function POST(req: NextRequest) {
       console.warn('[Forgot Password POST] User missing supabaseId, attempting reset anyway', { email });
     }
 
-    const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo });
+    try {
+      const supabase = getSupabaseServerClient();
+      const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo });
 
-    if (error) {
+      if (!error) {
+        return NextResponse.json({ success: true, mode: 'supabase' });
+      }
+
       console.error('[Forgot Password POST] Supabase error:', {
         email,
         supabaseId: user.supabaseId,
@@ -62,11 +67,16 @@ export async function POST(req: NextRequest) {
       if (error.status === 429 || /40 seconds/i.test(error.message)) {
         return NextResponse.json({ success: true, cooldown: true });
       }
-
-      return NextResponse.json({ error: 'Could not send reset link' }, { status: 500 });
+    } catch (error) {
+      console.error('[Forgot Password POST] Supabase reset failed, falling back to local token email', error);
     }
 
-    return NextResponse.json({ success: true });
+    const localResult = await sendLocalPasswordResetEmail({ email, appUrl });
+    if (localResult.sent) {
+      return NextResponse.json({ success: true, mode: 'token' });
+    }
+
+    return NextResponse.json({ error: 'Could not send reset link' }, { status: 500 });
   } catch (error) {
     console.error('[Forgot Password POST]', error);
     return NextResponse.json({ error: 'Could not process request' }, { status: 500 });

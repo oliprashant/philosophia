@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
 import { sendEmail } from '@/lib/mailer';
 import { getSupabaseServerClient } from '@/lib/supabase/server';
+import { sendLocalPasswordResetEmail } from '@/lib/password-reset';
 
 const schema = z.object({
   email: z.string().email(),
@@ -49,15 +50,27 @@ export async function POST(req: NextRequest) {
     }
 
     // Otherwise, resend recovery OTP/link from Supabase using resetPasswordForEmail.
-    const supabase = getSupabaseServerClient();
-    const { error } = await supabase.auth.resetPasswordForEmail(email);
+    try {
+      const supabase = getSupabaseServerClient();
+      const { error } = await supabase.auth.resetPasswordForEmail(email);
 
-    if (error) {
+      if (!error) {
+        return NextResponse.json({ success: true, mode: 'recovery' });
+      }
+
       console.error('[Resend OTP POST] Supabase error:', error.message);
-      return NextResponse.json({ error: 'Could not resend reset link' }, { status: 500 });
+    } catch (error) {
+      console.error('[Resend OTP POST] Supabase reset failed, falling back to local token email', error);
     }
 
-    return NextResponse.json({ success: true, mode: 'recovery' });
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXTAUTH_URL || new URL(req.url).origin;
+    const localResult = await sendLocalPasswordResetEmail({ email, appUrl });
+
+    if (localResult.sent) {
+      return NextResponse.json({ success: true, mode: 'token' });
+    }
+
+    return NextResponse.json({ error: 'Could not resend reset link' }, { status: 500 });
   } catch (error) {
     console.error('[Resend OTP POST]', error);
     return NextResponse.json({ error: 'Could not process request' }, { status: 500 });
